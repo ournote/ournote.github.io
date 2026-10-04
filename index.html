@@ -1,0 +1,858 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>우리 약속 노트</title>
+<meta name="description" content="같이 하기로 한 것, 해주기로 한 것">
+<meta name="theme-color" content="#b5476a">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="약속 노트">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #f7f3f4;
+    --paper: #fff;
+    --ink: #2b2230;
+    --muted: #7d6f7a;
+    --line: #e8dfe3;
+    --rose: #b5476a;
+    --rose-soft: #f6e3ea;
+    --plum: #4a2f45;
+    --ok: #3f7a5a;
+    --ok-soft: #e3f1e8;
+    --shadow: 0 1px 2px rgba(43, 34, 48, .06), 0 4px 14px rgba(43, 34, 48, .05);
+    --serif: "Gowun Batang", "Apple SD Gothic Neo", serif;
+    --sans: "IBM Plex Sans KR", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c171d;
+      --paper: #262028;
+      --ink: #f1e9ef;
+      --muted: #a8999f;
+      --line: #3a3039;
+      --rose: #e3829f;
+      --rose-soft: #3d2531;
+      --plum: #e9cfe0;
+      --ok: #7cc59a;
+      --ok-soft: #203229;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3);
+      color-scheme: dark;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body.locked { overflow: hidden; }
+  button, input, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  a { color: var(--rose); }
+
+  .wrap {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 0 max(16px, env(safe-area-inset-right)) calc(110px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+
+  header.top { padding: calc(28px + env(safe-area-inset-top)) 2px 14px; }
+  header.top h1 {
+    margin: 0;
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: 26px;
+    letter-spacing: -0.01em;
+    color: var(--plum);
+  }
+  header.top p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+  header.top p b { color: var(--rose); font-weight: 600; }
+
+  /* 탭 */
+  .tabs {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    margin: 0 calc(-1 * max(16px, env(safe-area-inset-left))) 0;
+    padding: 8px max(16px, env(safe-area-inset-left)) 10px;
+    background: var(--bg);
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    flex: 0 0 auto;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 13.5px;
+    white-space: nowrap;
+  }
+  .tab .n { margin-left: 4px; font-size: 12px; opacity: .8; }
+  .tab[aria-selected="true"] {
+    background: var(--plum);
+    border-color: var(--plum);
+    color: var(--bg);
+  }
+
+  /* 카드 */
+  .list { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+  .card {
+    display: flex;
+    gap: 12px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px 14px 14px 12px;
+    box-shadow: var(--shadow);
+  }
+  .check {
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    margin-top: 1px;
+    border-radius: 50%;
+    border: 2px solid var(--rose);
+    background: transparent;
+    display: grid;
+    place-items: center;
+    padding: 0;
+  }
+  .check svg { width: 14px; height: 14px; opacity: 0; color: var(--paper); }
+  .card.done .check { background: var(--ok); border-color: var(--ok); }
+  .card.done .check svg { opacity: 1; }
+  .body { flex: 1; min-width: 0; }
+  .title {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: 0;
+    background: none;
+    padding: 0;
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: 16.5px;
+    line-height: 1.4;
+    color: var(--ink);
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  .card.done .title { color: var(--muted); }
+  .meta { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; font-size: 13.5px; color: var(--muted); }
+  .meta .row { overflow-wrap: anywhere; }
+  .meta .row a { text-decoration: none; }
+  .meta .row a:hover { text-decoration: underline; }
+  .chip {
+    display: inline-block;
+    align-self: flex-start;
+    background: var(--rose-soft);
+    color: var(--rose);
+    border-radius: 999px;
+    padding: 1px 9px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .maplink {
+    margin-left: 6px;
+    font-size: 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0 6px;
+    white-space: nowrap;
+  }
+  .memo { white-space: pre-wrap; color: var(--ink); opacity: .85; }
+  .donedate { color: var(--ok); font-weight: 500; font-size: 13px; }
+  .review {
+    margin-top: 4px;
+    background: var(--ok-soft);
+    color: var(--ink);
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 13.5px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 48px 20px;
+    font-size: 14px;
+    line-height: 1.7;
+    word-break: keep-all;
+  }
+
+  details.donebox { margin-top: 22px; }
+  details.donebox summary {
+    list-style: none;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 14px;
+    padding: 8px 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  details.donebox summary::-webkit-details-marker { display: none; }
+  details.donebox summary::before {
+    content: "";
+    width: 7px; height: 7px;
+    border-right: 1.6px solid currentColor;
+    border-bottom: 1.6px solid currentColor;
+    transform: rotate(-45deg);
+    transition: transform .15s;
+    margin-right: 4px;
+  }
+  details.donebox[open] summary::before { transform: rotate(45deg); }
+  details.donebox .list { margin-top: 6px; }
+
+  /* 백업 */
+  .backup {
+    margin-top: 36px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--line);
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+  }
+  .ghost {
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--muted);
+    border-radius: 10px;
+    padding: 7px 12px;
+    font-size: 13px;
+  }
+
+  /* + 버튼 */
+  .fab {
+    position: fixed;
+    right: max(20px, calc(50% - 280px + 20px), env(safe-area-inset-right));
+    bottom: calc(22px + env(safe-area-inset-bottom));
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    border: 0;
+    background: var(--rose);
+    color: var(--paper);
+    box-shadow: 0 6px 18px rgba(181, 71, 106, .35);
+    display: grid;
+    place-items: center;
+    z-index: 10;
+  }
+  .fab svg { width: 26px; height: 26px; }
+
+  /* 바텀시트 */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    background: rgba(28, 20, 26, .42);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity .18s ease;
+  }
+  .overlay.show { opacity: 1; }
+  .sheet {
+    width: 100%;
+    max-width: 560px;
+    max-height: calc(100% - 24px - env(safe-area-inset-top));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    background: var(--paper);
+    border-radius: 18px 18px 0 0;
+    padding: 10px 18px calc(18px + env(safe-area-inset-bottom));
+    transform: translateY(24px);
+    transition: transform .2s ease;
+  }
+  .overlay.show .sheet { transform: none; }
+  .grip { width: 38px; height: 4px; border-radius: 4px; background: var(--line); margin: 0 auto 12px; }
+  .sheet h2 {
+    margin: 0 0 14px;
+    font-family: var(--serif);
+    font-size: 19px;
+    color: var(--plum);
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  .field { margin-bottom: 12px; }
+  .field label, .field .lab { display: block; font-size: 13px; color: var(--muted); margin-bottom: 5px; }
+  .field .req { color: var(--rose); }
+  .field input, .field textarea {
+    width: 100%;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 16px; /* iOS 확대 방지 */
+    outline: none;
+  }
+  .field textarea { resize: vertical; min-height: 64px; }
+  .field input:focus, .field textarea:focus { border-color: var(--rose); }
+  .field.err input { border-color: var(--rose); background: var(--rose-soft); }
+  .cats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .cat {
+    border: 1px solid var(--line);
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 10px 8px;
+    font-size: 14px;
+    text-align: center;
+  }
+  .cat[aria-pressed="true"] {
+    border-color: var(--rose);
+    background: var(--rose-soft);
+    color: var(--rose);
+    font-weight: 600;
+  }
+  .actions { display: flex; gap: 8px; margin-top: 18px; }
+  .actions .spacer { flex: 1; }
+  .btn {
+    border: 1px solid var(--line);
+    background: var(--paper);
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 15px;
+  }
+  .btn.primary { background: var(--rose); border-color: var(--rose); color: var(--paper); font-weight: 600; }
+  .btn.ok { background: var(--ok); border-color: var(--ok); color: var(--paper); font-weight: 600; }
+  .btn.danger { color: var(--rose); border-color: var(--rose-soft); background: transparent; }
+  .btn.danger.solid { background: var(--rose); border-color: var(--rose); color: var(--paper); }
+  .confirm {
+    margin-top: 14px;
+    background: var(--rose-soft);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .confirm span { flex: 1; color: var(--rose); font-weight: 500; font-size: 14px; }
+  .confirm .btn { padding: 7px 12px; font-size: 14px; }
+  .sheet p.note { margin: 0 0 6px; color: var(--muted); font-size: 14px; word-break: keep-all; }
+
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(96px + env(safe-area-inset-bottom));
+    transform: translate(-50%, 10px);
+    background: var(--plum);
+    color: var(--bg);
+    padding: 9px 16px;
+    border-radius: 999px;
+    font-size: 13.5px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s, transform .2s;
+    z-index: 30;
+    max-width: calc(100% - 32px);
+    text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>우리 약속 노트</h1>
+    <p>같이 하기로 한 것, 해주기로 한 것 · 남은 약속 <b id="leftCount">0</b>개</p>
+  </header>
+
+  <nav class="tabs" id="tabs" role="tablist" aria-label="카테고리"></nav>
+
+  <main id="main"></main>
+
+  <div class="backup">
+    <button class="ghost" id="exportBtn" type="button">백업 저장</button>
+    <button class="ghost" id="importBtn" type="button">백업 불러오기</button>
+    <input type="file" id="importFile" accept="application/json,.json" hidden>
+  </div>
+</div>
+
+<button class="fab" id="fab" type="button" aria-label="새 약속">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+</button>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var STORAGE_KEY = 'ournote:items';
+
+  var CATS = [
+    { id: 'food', emoji: '🍰', label: '맛집·디저트' },
+    { id: 'gift', emoji: '🎁', label: '선물·만들어주기' },
+    { id: 'surprise', emoji: '💐', label: '서프라이즈' },
+    { id: 'date', emoji: '✈️', label: '데이트·여행' }
+  ];
+  var CAT_BY_ID = {};
+  CATS.forEach(function (c) { CAT_BY_ID[c.id] = c; });
+
+  function seedItems() {
+    var base = Date.now();
+    var raw = [
+      { cat: 'food', title: '로즈드메 휘낭시에·마들렌 같이 먹기', place: '서울 서초구 방배천로4안길 61 1층', link: 'https://instagram.com/_rosedemai', memo: '화–일 11:00–20:00, 월요일 휴무' },
+      { cat: 'food', title: '뻬흐 드 베르 수제 초콜릿(봉봉)', place: '', link: 'https://instagram.com/perledeverre.kr', memo: '부산 수제 초콜릿 가게. 주문·문의는 카카오 채널 pf.kakao.com/_UEFxfG' },
+      { cat: 'food', title: '음음케이크 백조 케이크(Coco Swan) 해주기', place: '목포시 하당로68번길 10-1', link: 'https://instagram.com/ummumm_cake', memo: '' },
+      { cat: 'gift', title: '키티케이스 만들어주기', place: '', link: '', memo: '' },
+      { cat: 'gift', title: '내 사진으로 폰케이스 만들어주기', place: '', link: '', memo: '' },
+      { cat: 'surprise', title: '꽃 서프라이즈 해주기', place: '', link: '', memo: '' }
+    ];
+    return raw.map(function (r, i) {
+      return normalize({
+        id: 'seed-' + (i + 1) + '-' + base.toString(36),
+        title: r.title, cat: r.cat, place: r.place, link: r.link, memo: r.memo, when: '',
+        done: false, doneAt: '', review: '', createdAt: base + i
+      });
+    });
+  }
+
+  // ---------- 저장 ----------
+  function load() {
+    var raw = null;
+    try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { raw = null; }
+    if (raw === null) {
+      var seeded = seedItems();
+      save(seeded);
+      return seeded;
+    }
+    try {
+      var parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter(isItemLike).map(normalize);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function save(list) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      return true;
+    } catch (e) {
+      toast('저장하지 못했어요. 브라우저 저장 공간을 확인해 주세요.');
+      return false;
+    }
+  }
+
+  function isItemLike(x) {
+    return x && typeof x === 'object' && typeof x.title === 'string' && x.title.trim() !== '';
+  }
+
+  function str(v) { return typeof v === 'string' ? v : ''; }
+
+  function normalize(x) {
+    var createdAt = Number(x.createdAt);
+    return {
+      id: str(x.id) || uid(),
+      title: str(x.title).trim(),
+      cat: CAT_BY_ID[x.cat] ? x.cat : 'food',
+      place: str(x.place),
+      link: str(x.link),
+      memo: str(x.memo),
+      when: str(x.when),
+      done: x.done === true,
+      doneAt: /^\d{4}-\d{2}-\d{2}$/.test(str(x.doneAt)) ? x.doneAt : '',
+      review: str(x.review),
+      createdAt: isFinite(createdAt) ? createdAt : Date.now()
+    };
+  }
+
+  function uid() {
+    return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+  }
+
+  var items = load();
+  var currentTab = 'all';
+  var doneOpen = false;
+
+  // ---------- 유틸 ----------
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function today() {
+    var d = new Date();
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+  function dotDate(ymd) { return ymd ? ymd.replace(/-/g, '.') : ''; }
+  function isHttp(s) { return /^https?:\/\//i.test(s); }
+
+  var toastTimer = null;
+  function toast(msg) {
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2400);
+  }
+
+  // ---------- 렌더 ----------
+  var CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+
+  function render() {
+    var open = items.filter(function (i) { return !i.done; });
+    document.getElementById('leftCount').textContent = open.length;
+
+    // 탭
+    var tabs = [{ id: 'all', label: '전체', n: open.length }].concat(CATS.map(function (c) {
+      return { id: c.id, label: c.emoji + ' ' + c.label, n: open.filter(function (i) { return i.cat === c.id; }).length };
+    }));
+    document.getElementById('tabs').innerHTML = tabs.map(function (t) {
+      return '<button class="tab" type="button" role="tab" data-tab="' + t.id + '" aria-selected="' + (t.id === currentTab) + '">' +
+        esc(t.label) + '<span class="n">' + t.n + '</span></button>';
+    }).join('');
+
+    var inTab = items.filter(function (i) { return currentTab === 'all' || i.cat === currentTab; });
+    var active = inTab.filter(function (i) { return !i.done; })
+      .sort(function (a, b) { return a.createdAt - b.createdAt; });
+    var done = inTab.filter(function (i) { return i.done; })
+      .sort(function (a, b) {
+        if (a.doneAt !== b.doneAt) return a.doneAt < b.doneAt ? 1 : -1;
+        return b.createdAt - a.createdAt;
+      });
+
+    var main = document.getElementById('main');
+    var html = '';
+    if (!active.length && !done.length) {
+      html = '<div class="empty">아직 약속이 없어요.<br>오른쪽 아래 + 버튼으로 첫 약속을 적어보세요.</div>';
+    } else {
+      if (active.length) {
+        html += '<div class="list">' + active.map(cardHtml).join('') + '</div>';
+      } else {
+        html += '<div class="empty">남은 약속을 모두 지켰어요 🎉</div>';
+      }
+      if (done.length) {
+        html += '<details class="donebox"' + (doneOpen ? ' open' : '') + '><summary>했던 것들 ' + done.length + '</summary>' +
+          '<div class="list">' + done.map(cardHtml).join('') + '</div></details>';
+      }
+    }
+    main.innerHTML = html;
+  }
+
+  function cardHtml(it) {
+    var cat = CAT_BY_ID[it.cat];
+    var rows = [];
+    rows.push('<span class="chip">' + cat.emoji + ' ' + esc(cat.label) + '</span>');
+    if (it.done && it.doneAt) rows.push('<div class="row donedate">' + esc(dotDate(it.doneAt)) + ' 완료</div>');
+    if (it.place) {
+      rows.push('<div class="row">📍 ' + esc(it.place) +
+        '<a class="maplink" href="https://map.naver.com/p/search/' + encodeURIComponent(it.place) + '" target="_blank" rel="noopener">지도</a></div>');
+    }
+    if (it.link) {
+      rows.push('<div class="row">🔗 ' + (isHttp(it.link)
+        ? '<a href="' + esc(it.link) + '" target="_blank" rel="noopener">' + esc(it.link.replace(/^https?:\/\//i, '')) + '</a>'
+        : esc(it.link)) + '</div>');
+    }
+    if (it.memo) rows.push('<div class="row memo">' + esc(it.memo) + '</div>');
+    if (it.when) rows.push('<div class="row">⏳ ' + esc(it.when) + '</div>');
+    if (it.done && it.review) rows.push('<div class="review">' + esc(it.review) + '</div>');
+
+    return '<article class="card' + (it.done ? ' done' : '') + '" data-id="' + esc(it.id) + '">' +
+      '<button class="check" type="button" data-act="check" aria-label="' + (it.done ? '안 한 걸로 되돌리기' : '했어요') + '">' + CHECK_SVG + '</button>' +
+      '<div class="body"><button class="title" type="button" data-act="edit">' + esc(it.title) + '</button>' +
+      '<div class="meta">' + rows.join('') + '</div></div></article>';
+  }
+
+  // ---------- 시트 ----------
+  var sheetStack = [];
+
+  function openSheet(innerHtml, onMount) {
+    var ov = document.createElement('div');
+    ov.className = 'overlay';
+    ov.innerHTML = '<div class="sheet" role="dialog" aria-modal="true"><div class="grip"></div>' + innerHtml + '</div>';
+    ov.addEventListener('click', function (e) { if (e.target === ov) closeSheet(); });
+    document.body.appendChild(ov);
+    document.body.classList.add('locked');
+    sheetStack.push(ov);
+    requestAnimationFrame(function () { ov.classList.add('show'); });
+    if (onMount) onMount(ov.querySelector('.sheet'));
+    return ov;
+  }
+
+  function closeSheet() {
+    var ov = sheetStack.pop();
+    if (!ov) return;
+    ov.classList.remove('show');
+    setTimeout(function () { ov.remove(); }, 200);
+    if (!sheetStack.length) document.body.classList.remove('locked');
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && sheetStack.length) { e.preventDefault(); closeSheet(); }
+  });
+
+  function field(id, label, value, opts) {
+    opts = opts || {};
+    var tag = opts.textarea
+      ? '<textarea id="' + id + '" rows="3" placeholder="' + esc(opts.ph || '') + '">' + esc(value) + '</textarea>'
+      : '<input id="' + id + '" type="' + (opts.type || 'text') + '" value="' + esc(value) + '" placeholder="' + esc(opts.ph || '') + '"' +
+        (opts.inputmode ? ' inputmode="' + opts.inputmode + '"' : '') + ' autocomplete="off">';
+    return '<div class="field" data-field="' + id + '"><label for="' + id + '">' + label +
+      (opts.req ? ' <span class="req">*</span>' : '') + '</label>' + tag + '</div>';
+  }
+
+  function openEditor(item) {
+    var isNew = !item;
+    var data = item || { title: '', cat: currentTab !== 'all' ? currentTab : 'food', place: '', link: '', memo: '', when: '' };
+    var selectedCat = data.cat;
+
+    var html = '<h2>' + (isNew ? '새 약속' : '약속 고치기') + '</h2>' +
+      field('f-title', '무엇을', data.title, { req: true, ph: '예) 성수동 소금빵 같이 먹기' }) +
+      '<div class="field"><span class="lab">카테고리</span><div class="cats">' +
+      CATS.map(function (c) {
+        return '<button type="button" class="cat" data-cat="' + c.id + '" aria-pressed="' + (c.id === selectedCat) + '">' + c.emoji + ' ' + esc(c.label) + '</button>';
+      }).join('') + '</div></div>' +
+      field('f-place', '주소', data.place, { ph: '지도에서 찾을 주소나 가게 이름' }) +
+      field('f-link', '링크', data.link, { ph: 'https://', inputmode: 'url' }) +
+      field('f-memo', '메모', data.memo, { textarea: true, ph: '영업시간, 메뉴, 사이즈 등' }) +
+      field('f-when', '목표 시기', data.when, { ph: '예) 12월, 100일, 다음 휴가' }) +
+      '<div class="actions">' +
+        (isNew ? '' : '<button type="button" class="btn danger" data-act="del">삭제</button>') +
+        '<span class="spacer"></span>' +
+        '<button type="button" class="btn" data-act="close">닫기</button>' +
+        '<button type="button" class="btn primary" data-act="save">저장</button>' +
+      '</div>' +
+      '<div class="confirm" data-confirm hidden><span>정말 지울까요?</span>' +
+        '<button type="button" class="btn" data-act="del-no">아니요</button>' +
+        '<button type="button" class="btn danger solid" data-act="del-yes">지우기</button></div>';
+
+    openSheet(html, function (sheet) {
+      var titleInput = sheet.querySelector('#f-title');
+      if (isNew) setTimeout(function () { titleInput.focus(); }, 60);
+      titleInput.addEventListener('input', function () {
+        sheet.querySelector('[data-field="f-title"]').classList.remove('err');
+      });
+
+      sheet.addEventListener('click', function (e) {
+        var catBtn = e.target.closest('[data-cat]');
+        if (catBtn) {
+          selectedCat = catBtn.getAttribute('data-cat');
+          sheet.querySelectorAll('[data-cat]').forEach(function (b) {
+            b.setAttribute('aria-pressed', String(b === catBtn));
+          });
+          return;
+        }
+        var actBtn = e.target.closest('[data-act]');
+        if (!actBtn) return;
+        var act = actBtn.getAttribute('data-act');
+        var confirmBox = sheet.querySelector('[data-confirm]');
+        if (act === 'close') closeSheet();
+        else if (act === 'del') { confirmBox.hidden = false; confirmBox.scrollIntoView({ block: 'nearest' }); }
+        else if (act === 'del-no') confirmBox.hidden = true;
+        else if (act === 'del-yes') {
+          items = items.filter(function (i) { return i.id !== item.id; });
+          save(items); render(); closeSheet();
+          toast('지웠어요');
+        } else if (act === 'save') {
+          var title = titleInput.value.trim();
+          if (!title) {
+            sheet.querySelector('[data-field="f-title"]').classList.add('err');
+            titleInput.focus();
+            return;
+          }
+          var vals = {
+            title: title,
+            cat: selectedCat,
+            place: sheet.querySelector('#f-place').value.trim(),
+            link: sheet.querySelector('#f-link').value.trim(),
+            memo: sheet.querySelector('#f-memo').value.trim(),
+            when: sheet.querySelector('#f-when').value.trim()
+          };
+          if (isNew) {
+            items.push(normalize(Object.assign({ id: uid(), done: false, doneAt: '', review: '', createdAt: Date.now() }, vals)));
+          } else {
+            Object.assign(item, vals);
+          }
+          save(items); render(); closeSheet();
+        }
+      });
+
+      sheet.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && e.target.tagName === 'INPUT' && !e.isComposing) {
+          e.preventDefault();
+          sheet.querySelector('[data-act="save"]').click();
+        }
+      });
+    });
+  }
+
+  function openDone(item) {
+    var html = '<h2>‘' + esc(item.title) + '’ 했어요!</h2>' +
+      field('d-date', '날짜', today(), { type: 'date' }) +
+      field('d-review', '한 줄 후기', '', { ph: '어땠는지 한 줄로 남겨요' }) +
+      '<div class="actions"><span class="spacer"></span>' +
+        '<button type="button" class="btn" data-act="close">닫기</button>' +
+        '<button type="button" class="btn ok" data-act="done">완료</button></div>';
+
+    openSheet(html, function (sheet) {
+      function finish() {
+        var d = sheet.querySelector('#d-date').value;
+        item.done = true;
+        item.doneAt = /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : today();
+        item.review = sheet.querySelector('#d-review').value.trim();
+        save(items); render(); closeSheet();
+        toast('약속 하나 지켰어요 💕');
+      }
+      sheet.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-act]');
+        if (!btn) return;
+        var act = btn.getAttribute('data-act');
+        if (act === 'close') closeSheet();
+        else if (act === 'done') finish();
+      });
+      sheet.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && e.target.id === 'd-review' && !e.isComposing) { e.preventDefault(); finish(); }
+      });
+    });
+  }
+
+  // ---------- 이벤트 ----------
+  document.getElementById('tabs').addEventListener('click', function (e) {
+    var t = e.target.closest('[data-tab]');
+    if (!t) return;
+    currentTab = t.getAttribute('data-tab');
+    render();
+  });
+
+  document.getElementById('main').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    var card = btn.closest('.card');
+    var item = items.find(function (i) { return i.id === card.getAttribute('data-id'); });
+    if (!item) return;
+    var act = btn.getAttribute('data-act');
+    if (act === 'edit') openEditor(item);
+    else if (act === 'check') {
+      if (item.done) {
+        item.done = false;
+        item.doneAt = '';
+        save(items); render();
+        toast('다시 남은 약속으로 옮겼어요');
+      } else {
+        openDone(item);
+      }
+    }
+  });
+
+  document.getElementById('main').addEventListener('toggle', function (e) {
+    if (e.target.classList && e.target.classList.contains('donebox')) doneOpen = e.target.open;
+  }, true);
+
+  document.getElementById('fab').addEventListener('click', function () { openEditor(null); });
+
+  // ---------- 백업 ----------
+  document.getElementById('exportBtn').addEventListener('click', function () {
+    try {
+      var json = JSON.stringify(items, null, 2);
+      var blob = new Blob([json], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'ournote-backup-' + today().replace(/-/g, '') + '.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+      toast('백업 파일을 저장했어요');
+    } catch (e) {
+      toast('백업을 저장하지 못했어요');
+    }
+  });
+
+  var fileInput = document.getElementById('importFile');
+  document.getElementById('importBtn').addEventListener('click', function () {
+    fileInput.value = '';
+    fileInput.click();
+  });
+
+  fileInput.addEventListener('change', function () {
+    var file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var next = parseBackup(String(reader.result || ''));
+      if (!next) { toast('약속 노트 백업 파일이 아니에요'); return; }
+      confirmImport(next);
+    };
+    reader.onerror = function () { toast('파일을 읽지 못했어요'); };
+    reader.readAsText(file);
+  });
+
+  function parseBackup(text) {
+    var data;
+    try { data = JSON.parse(text); } catch (e) { return null; }
+    if (data && !Array.isArray(data) && Array.isArray(data.items)) data = data.items;
+    if (!Array.isArray(data)) return null;
+    var valid = data.every(function (x) {
+      return isItemLike(x) && (x.cat === undefined || CAT_BY_ID[x.cat]) &&
+        (x.done === undefined || typeof x.done === 'boolean');
+    });
+    if (!valid) return null;
+    var seen = {};
+    return data.map(normalize).map(function (it) {
+      if (seen[it.id]) it.id = uid();
+      seen[it.id] = true;
+      return it;
+    });
+  }
+
+  function confirmImport(next) {
+    var html = '<h2>현재 목록을 덮어쓸까요?</h2>' +
+      '<p class="note">백업 파일의 약속 ' + next.length + '개로 바꿔요. 지금 목록(' + items.length + '개)은 사라져요.</p>' +
+      '<div class="actions"><span class="spacer"></span>' +
+        '<button type="button" class="btn" data-act="close">취소</button>' +
+        '<button type="button" class="btn danger solid" data-act="replace">덮어쓰기</button></div>';
+    openSheet(html, function (sheet) {
+      sheet.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-act]');
+        if (!btn) return;
+        if (btn.getAttribute('data-act') === 'close') closeSheet();
+        else {
+          items = next;
+          save(items); render(); closeSheet();
+          toast('백업을 불러왔어요');
+        }
+      });
+    });
+  }
+
+  render();
+
+  // ---------- 서비스 워커 ----------
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('/sw.js').catch(function () {});
+    });
+  }
+})();
+</script>
+</body>
+</html>
