@@ -1,10 +1,11 @@
 // 배포할 때마다 VERSION을 올리면 이전 캐시가 정리되고 새 앱 셸이 저장된다.
-const VERSION = 'v1.0.0';
+const VERSION = 'v1.1.0';
 const SHELL_CACHE = 'ournote-shell-' + VERSION;
 const FONT_CACHE = 'ournote-fonts';
 const SHELL = [
   '/',
   '/index.html',
+  '/map.html',
   '/manifest.webmanifest',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
@@ -60,11 +61,14 @@ self.addEventListener('fetch', (event) => {
         .then((res) => {
           if (res.ok) {
             const copy = res.clone();
-            caches.open(SHELL_CACHE).then((cache) => cache.put('/index.html', copy));
+            caches.open(SHELL_CACHE).then((cache) => cache.put(url.pathname, copy));
           }
           return res;
         })
-        .catch(() => caches.match('/index.html').then((r) => r || caches.match('/')))
+        .catch(() =>
+          caches.match(url.pathname, { ignoreSearch: true })
+            .then((r) => r || caches.match('/index.html'))
+        )
     );
     return;
   }

@@ -245,6 +245,23 @@
     font-size: 13px;
   }
 
+  .maplink-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 14px auto 0;
+    max-width: 320px;
+    padding: 12px 16px;
+    border: 1px solid var(--rose-soft);
+    background: var(--rose-soft);
+    color: var(--rose);
+    border-radius: 14px;
+    font-weight: 600;
+    font-size: 14.5px;
+    text-decoration: none;
+  }
+
   /* + 버튼 */
   .fab {
     position: fixed;
@@ -390,6 +407,7 @@
     <button class="ghost" id="importBtn" type="button">백업 불러오기</button>
     <input type="file" id="importFile" accept="application/json,.json" hidden>
   </div>
+  <a class="maplink-page" href="/map.html">🗺️ 데이트코스 지도 바로가기 →</a>
 </div>
 
 <button class="fab" id="fab" type="button" aria-label="새 약속">
