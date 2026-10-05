@@ -586,7 +586,12 @@
     place-items: center;
     font-size: 14px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, .25);
+    opacity: 0;
+    transform: scale(.7);
+    pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
   }
+  .modebadge.show { opacity: 1; transform: none; }
   .ignorebtn {
     margin-left: auto;
     flex: 0 0 auto;
@@ -1119,7 +1124,22 @@
   }
 
   // ---------- 2. 지도 ----------
-  var map = null, kakaoReady = false, overlays = [], line = null, geocoder = null, places = null;
+  var map = null, kakaoReady = false, overlays = [], line = null, geocoder = null, places = null, badges = [];
+  // 이동 수단 아이콘은 그 구간 선이 화면에서 충분히 길게 보일 때만(확대할수록 짧은 구간도 나타남)
+  var BADGE_MIN_PX = 90;
+  function updateBadges() {
+    if (!map || !badges.length) return;
+    var proj;
+    try { proj = map.getProjection(); } catch (e) { return; }
+    badges.forEach(function (bd) {
+      var show = false;
+      try {
+        var p1 = proj.containerPointFromCoords(bd.a), p2 = proj.containerPointFromCoords(bd.b);
+        show = Math.hypot(p1.x - p2.x, p1.y - p2.y) >= BADGE_MIN_PX;
+      } catch (e) { show = true; }
+      bd.el.classList.toggle('show', show);
+    });
+  }
 
   function loadKakao() {
     var s = document.createElement('script');
@@ -1142,6 +1162,8 @@
     } catch (e) { mapFail(); return; }
     geocoder = new k.maps.services.Geocoder();
     places = new k.maps.services.Places();
+    k.maps.event.addListener(map, 'zoom_changed', updateBadges);
+    k.maps.event.addListener(map, 'idle', updateBadges);
     document.getElementById('mapMsg').hidden = true;
     kakaoReady = true;
     var pending = [];
@@ -1195,6 +1217,7 @@
     });
     // 장소 사이 선: 이동 수단마다 모양을 다르게, 가운데에 수단 아이콘
     line = [];
+    badges = [];
     for (var j = 1; j < located.length; j++) {
       var a = located[j - 1], b2 = located[j];
       var mv = b2.move && MODE[b2.move.mode] ? MODE[b2.move.mode] : null;
@@ -1227,9 +1250,11 @@
         var mo = new k.maps.CustomOverlay({ position: mid, content: badge, yAnchor: 0.5, zIndex: 5 });
         mo.setMap(map);
         overlays.push(mo);
+        badges.push({ el: badge, a: new k.maps.LatLng(a.lat, a.lng), b: new k.maps.LatLng(b2.lat, b2.lng) });
       }
     }
     document.getElementById('mapHint').hidden = path.length > 0;
+    updateBadges();
     if (fit && path.length) {
       if (path.length === 1) { map.setLevel(4); map.setCenter(path[0]); }
       else {
