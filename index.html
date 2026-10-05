@@ -73,7 +73,26 @@
     padding: 0 max(16px, env(safe-area-inset-right)) calc(110px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   }
 
-  header.top { padding: calc(28px + env(safe-area-inset-top)) 2px 14px; }
+  header.top { position: relative; padding: calc(28px + env(safe-area-inset-top)) 2px 14px; }
+  header.top h1 { padding-right: 52px; }
+  .netbtn {
+    position: absolute;
+    top: calc(24px + env(safe-area-inset-top));
+    right: 0;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    color: var(--plum);
+    display: grid;
+    place-items: center;
+    box-shadow: var(--shadow);
+    text-decoration: none;
+  }
+  .netbtn svg { width: 22px; height: 22px; }
+  body.leaving .wrap, body.leaving .fab { transition: opacity .28s ease, transform .28s ease; opacity: 0; transform: scale(.96); }
+  body.leaving { background: #120d14; transition: background .28s ease; }
   header.top h1 {
     margin: 0;
     font-family: var(--serif);
@@ -395,6 +414,14 @@
 <div class="wrap">
   <header class="top">
     <h1>우리 약속 노트</h1>
+    <a class="netbtn" id="netBtn" href="/graph.html" aria-label="약속 네트워크 분석">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+        <path d="M6 6.5l5 4M12 11l6-4.5M12 11l-5 7M12 11l5.5 6.5M6 6.5L7 18M18 6.5l-.5 11"/>
+        <circle cx="6" cy="6" r="2.2" fill="currentColor" stroke="none"/><circle cx="18" cy="6" r="2.2" fill="currentColor" stroke="none"/>
+        <circle cx="12" cy="11" r="2.6" fill="currentColor" stroke="none"/><circle cx="7" cy="18.5" r="2" fill="currentColor" stroke="none"/>
+        <circle cx="17.5" cy="18" r="2" fill="currentColor" stroke="none"/>
+      </svg>
+    </a>
     <p>같이 하기로 한 것, 해주기로 한 것 · 남은 약속 <b id="leftCount">0</b>개</p>
   </header>
 
@@ -783,6 +810,15 @@
   document.getElementById('main').addEventListener('toggle', function (e) {
     if (e.target.classList && e.target.classList.contains('donebox')) doneOpen = e.target.open;
   }, true);
+
+  document.getElementById('netBtn').addEventListener('click', function (e) {
+    if (e.metaKey || e.ctrlKey) return;
+    e.preventDefault();
+    var href = this.getAttribute('href');
+    document.body.classList.add('leaving');
+    setTimeout(function () { location.href = href; }, 260);
+  });
+  window.addEventListener('pageshow', function () { document.body.classList.remove('leaving'); });
 
   document.getElementById('fab').addEventListener('click', function () { openEditor(null); });
 
