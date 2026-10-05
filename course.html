@@ -587,6 +587,18 @@
     font-size: 14px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, .25);
   }
+  .ignorebtn {
+    margin-left: auto;
+    flex: 0 0 auto;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 4px 11px;
+    font-size: 12.5px;
+    cursor: pointer;
+  }
+  .ignorebtn[aria-pressed="true"] { border-color: var(--plum); background: var(--plum); color: var(--bg); }
 </style>
 </head>
 <body>
@@ -967,9 +979,10 @@
     var km = legKm(prev, cur);
     var mv = cur.move || null;
     var mode = mv && MODE[mv.mode] ? mv.mode : null;
+    var ignored = !!(mv && mv.noTime);
     var min = mv && typeof mv.min === 'number' ? mv.min : (mode ? estimateMin(mode, km) : null);
     var free = hasTime(prev) && hasTime(cur) ? span(prev.end, cur.start) : null;
-    return { km: km, mode: mode, min: min, manual: !!(mv && typeof mv.min === 'number'), free: free, memo: mv && mv.memo || '', suggest: mode ? null : suggestMode(km) };
+    return { km: km, mode: mode, min: min, ignored: ignored, manual: !!(mv && typeof mv.min === 'number'), free: free, memo: mv && mv.memo || '', suggest: mode ? null : suggestMode(km) };
   }
   function legHtml(prev, cur) {
     var L = legInfo(prev, cur);
@@ -979,7 +992,7 @@
     if (L.km != null) bits.push(fmtKm(L.km));
     if (L.min != null) bits.push((L.manual ? '' : '약 ') + minText(L.min));
     var warn = '';
-    if (L.free != null && L.min != null) {
+    if (!L.ignored && L.free != null && L.min != null) { // 무시면 여유/부족만 안 보여줌
       var diff = L.free - L.min;
       warn = diff >= 0 ? '<span class="ok">' + (diff === 0 ? '딱 맞아요' : '여유 ' + minText(diff)) + '</span>'
         : '<span class="bad">⚠️ ' + minText(-diff) + ' 부족</span>';
@@ -998,8 +1011,9 @@
       '<div class="modes">' + MODES.map(function (m) {
         return '<button type="button" class="mode" data-mode="' + m.id + '" aria-pressed="' + (m.id === sel) + '"><span>' + m.ic + '</span>' + m.name + '</button>';
       }).join('') + '</div>' +
-      '<div class="legrow"><label for="lmin">걸리는 시간</label><input id="lmin" type="number" inputmode="numeric" min="0" step="5" placeholder="' + (L.min != null ? L.min : '') + '" value="' + (L.manual ? L.min : '') + '"><span>분</span>' +
-        '<span class="est" data-est>' + (sel && L.km != null ? '어림 약 ' + minText(estimateMin(sel, L.km)) : '') + '</span></div>' +
+      '<div class="legrow" data-timerow><label for="lmin">걸리는 시간</label><input id="lmin" type="number" inputmode="numeric" min="0" step="5" placeholder="' + (L.min != null ? L.min : '') + '" value="' + (L.manual && cur.move ? cur.move.min : '') + '"><span>분</span>' +
+        '<span class="est" data-est>' + (sel && L.km != null ? '어림 약 ' + minText(estimateMin(sel, L.km)) : '') + '</span>' +
+        '<button type="button" class="ignorebtn" data-act="ignore" aria-pressed="' + L.ignored + '" title="여유·부족 표시 안 하기">무시</button></div>' +
       '<div class="legrow"><label for="lmemo">메모</label><input id="lmemo" type="text" placeholder="예) KTX 10:30 서울역 출발, ○○공영주차장" value="' + esc(L.memo) + '" autocomplete="off"></div>' +
       '<button type="button" class="routebtn" data-act="route"' + (prev.lat == null || cur.lat == null ? ' disabled' : '') + '>🧭 카카오맵 길찾기</button>' +
       (prev.lat == null || cur.lat == null ? '<div class="hint" style="text-align:center">두 곳 모두 주소가 있어야 길찾기를 열 수 있어요</div>' : '') +
@@ -1009,6 +1023,7 @@
     openSheet(html, function (bs) {
       var est = bs.querySelector('[data-est]');
       var minIn = bs.querySelector('#lmin');
+      var ignore = L.ignored;
       function refreshEst() {
         var e = sel ? estimateMin(sel, L.km) : null;
         est.textContent = e != null ? '어림 약 ' + minText(e) : (sel ? '거리를 몰라 직접 적어주세요' : '');
@@ -1026,6 +1041,11 @@
         if (!a) return;
         var act = a.getAttribute('data-act');
         if (act === 'close') closeSheet();
+        else if (act === 'ignore') {
+          ignore = !ignore;
+          a.setAttribute('aria-pressed', String(ignore));
+
+        }
         else if (act === 'route') {
           var m = MODE[sel || L.suggest || 'car'];
           var by = m && m.kakao ? m.kakao : 'traffic';
@@ -1042,10 +1062,11 @@
         else if (act === 'save') {
           var v = minIn.value.trim();
           var memo = bs.querySelector('#lmemo').value.trim();
-          if (!sel && !v && !memo) { delete cur.move; }
+          if (!sel && !v && !memo && !ignore) { delete cur.move; }
           else {
             cur.move = { mode: sel || '', memo: memo };
             if (v !== '' && isFinite(Number(v))) cur.move.min = Math.max(0, Math.round(Number(v)));
+            if (ignore) cur.move.noTime = true; // 시간 딱딱 안 맞춰도 되는 구간
           }
           save();
           closeSheet();
