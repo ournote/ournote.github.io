@@ -19,6 +19,7 @@
   :root {
     --bg: #f7f3f4;
     --paper: #fff;
+    --paper-60: rgba(255, 255, 255, .6);
     --ink: #2b2230;
     --muted: #7d6f7a;
     --line: #e8dfe3;
@@ -37,6 +38,7 @@
     :root {
       --bg: #1c171d;
       --paper: #262028;
+      --paper-60: rgba(38, 32, 40, .6);
       --ink: #f1e9ef;
       --muted: #a8999f;
       --line: #3a3039;
@@ -158,7 +160,9 @@
     height: 100%;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    background: var(--paper);
+    background: var(--paper-60);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
     border: 1px solid var(--line);
     border-radius: 18px;
     box-shadow: var(--shadow);
