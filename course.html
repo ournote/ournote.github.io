@@ -454,6 +454,49 @@
   .stop .noaddr { color: var(--rose); opacity: .8; }
   .linkish { border: 0; background: none; color: var(--rose); font-size: 13px; font-weight: 600; padding: 0 2px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
   .addrbox { margin-bottom: 4px; }
+  .pick.small { max-height: 22vh; margin-bottom: 8px; }
+  .pick.small:empty { display: none; }
+  .picker {
+    position: relative;
+    height: 240px;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .pmap { position: absolute; inset: 0; }
+  .aim {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 30px;
+    height: 44px;
+    margin: -44px 0 0 -15px;
+    z-index: 3;
+    pointer-events: none;
+    transition: transform .15s ease;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .3));
+  }
+  .aim svg { width: 100%; height: 100%; display: block; }
+  .aimshadow {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 10px;
+    height: 4px;
+    margin: -2px 0 0 -5px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, .3);
+    z-index: 2;
+    pointer-events: none;
+    transition: transform .15s ease, opacity .15s ease;
+  }
+  .picker.moving .aim { transform: translateY(-8px); }
+  .picker.moving .aimshadow { transform: scale(1.5); opacity: .5; }
+  .locbtn.small { width: 34px; height: 34px; right: 8px; bottom: 8px; }
+  .locbtn.small svg { width: 17px; height: 17px; }
+  .pickaddr { margin-top: 8px; font-size: 13px; color: var(--muted); text-align: center; overflow-wrap: anywhere; min-height: 20px; }
+  .pickaddr b { color: var(--plum); }
 </style>
 </head>
 <body>
@@ -1273,12 +1316,14 @@
     else getMyPos(run);
   }
 
-  // ---------- 장소 하나: 주소 추가·바꾸기, 시간 바꾸기, 빼기 ----------
+  // ---------- 장소 하나: 주소 추가·바꾸기(지도 가운데 핀으로 맞추기), 시간 바꾸기, 빼기 ----------
   function openStop(st) {
     var time = { start: hasTime(st) ? st.start : null, end: hasTime(st) ? st.end : null };
     var others = dayStops().filter(function (s) { return s !== st; });
-    var pending = null; // 새로 고른 주소
     var noPlace = !st.place || st.lat == null;
+    var pick = null;      // 지도 가운데 위치 { lat, lng, addr }
+    var pickedName = '';  // 검색 결과에서 고른 장소 이름 (지도를 멀리 움직이면 지움)
+    var pickedAt = null;
     var html = '<h2><span class="num" style="background:' + esc(st.color) + ';display:inline-grid;vertical-align:3px;margin-right:6px">' + (ordered().indexOf(st) + 1) + '</span>' + esc(st.title) + '</h2>' +
       '<div class="addrline" data-addrline>' +
         (st.place
@@ -1287,44 +1332,106 @@
           : '<span class="noaddr">지도에 표시할 주소가 없어요</span>') +
         ' <button type="button" class="linkish" data-act="addr">' + (st.place ? '주소 바꾸기' : '주소 추가') + '</button>' +
       '</div>' +
-      '<div class="addrbox" data-addrbox' + (noPlace ? '' : ' hidden') + '>' +
-        '<div class="search"><input type="search" id="aq" placeholder="만날 곳 이름이나 주소 (예: 강남역 11번 출구)" enterkeyhint="search" autocomplete="off">' +
+      '<div class="addrbox" data-addrbox hidden>' +
+        '<div class="search"><input type="search" id="aq" placeholder="이름이나 주소로 찾기 (예: 강남역 11번 출구)" enterkeyhint="search" autocomplete="off">' +
         '<button type="button" class="btn" data-act="asearch">검색</button></div>' +
-        '<div class="pick" data-alist><div class="hint">검색해서 하나 고르면 지도에 이 장소로 표시돼요.</div></div>' +
+        '<div class="pick small" data-alist></div>' +
+        '<div class="picker">' +
+          '<div class="pmap" data-pmap></div>' +
+          '<div class="aim" aria-hidden="true"><svg viewBox="0 0 24 36"><path d="M12 35s10-12.5 10-22A10 10 0 0 0 2 13c0 9.5 10 22 10 22z" fill="' + esc(st.color) + '" stroke="#fff" stroke-width="2"/><circle cx="12" cy="13" r="3.6" fill="#fff"/></svg></div>' +
+          '<div class="aimshadow" aria-hidden="true"></div>' +
+          '<button type="button" class="locbtn small" data-act="ame" aria-label="내 위치로"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>' +
+        '</div>' +
+        '<div class="pickaddr" data-pickaddr>지도를 움직여 핀을 원하는 곳에 맞춰주세요</div>' +
       '</div>' +
       clockBlock() +
       '<div class="acts"><button type="button" class="btn del" data-act="del">빼기</button><span class="sp"></span>' +
       '<button type="button" class="btn" data-act="close">닫기</button>' +
       '<button type="button" class="btn pri" data-act="save">저장</button></div>';
+
     openSheet(html, function (bs) {
       var clock = makeClock(bs.querySelector('[data-clock]'), st.color, others, st, function (v) { time = v; });
-      var results = [];
+      var results = [], pmap = null, idleTimer = null;
+      var addrEl = bs.querySelector('[data-pickaddr]');
+
+      function showAddr() {
+        if (!pick) return;
+        addrEl.innerHTML = (pickedName ? '<b>' + esc(pickedName) + '</b> · ' : '') + esc(pick.addr || '주소를 찾는 중…');
+      }
+      // 지도가 멈추면 가운데 좌표를 주소로 바꿔서 보여줌
+      function onIdle() {
+        var c = pmap.getCenter();
+        var lat = c.getLat(), lng = c.getLng();
+        if (pickedAt && distKm(pickedAt, { lat: lat, lng: lng }) > 0.04) { pickedName = ''; pickedAt = null; }
+        pick = { lat: lat, lng: lng, addr: '' };
+        showAddr();
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(function () {
+          var want = pick;
+          geocoder.coord2Address(lng, lat, function (r, stt) {
+            if (want !== pick) return;
+            if (stt === window.kakao.maps.services.Status.OK && r[0]) {
+              pick.addr = (r[0].road_address && r[0].road_address.address_name) || (r[0].address && r[0].address.address_name) || '';
+            }
+            if (!pick.addr) pick.addr = lat.toFixed(5) + ', ' + lng.toFixed(5);
+            showAddr();
+          });
+        }, 250);
+      }
+      function openPicker() {
+        var box = bs.querySelector('[data-addrbox]');
+        box.hidden = false;
+        if (!kakaoReady) {
+          bs.querySelector('.picker').hidden = true;
+          addrEl.textContent = '지도를 불러오지 못해 지금은 고를 수 없어요.';
+          return;
+        }
+        if (pmap) { pmap.relayout(); return; }
+        var k = window.kakao;
+        var start = st.lat != null ? { lat: st.lat, lng: st.lng }
+          : (myPos ? myPos : (map ? { lat: map.getCenter().getLat(), lng: map.getCenter().getLng() } : { lat: 37.5446, lng: 127.0379 }));
+        pmap = new k.maps.Map(bs.querySelector('[data-pmap]'), { center: new k.maps.LatLng(start.lat, start.lng), level: st.lat != null ? 3 : 5 });
+        k.maps.event.addListener(pmap, 'dragstart', function () { bs.querySelector('.picker').classList.add('moving'); });
+        k.maps.event.addListener(pmap, 'idle', function () { bs.querySelector('.picker').classList.remove('moving'); onIdle(); });
+        setTimeout(function () { pmap.relayout(); pmap.setCenter(new k.maps.LatLng(start.lat, start.lng)); onIdle(); }, 60);
+      }
+      function moveTo(lat, lng, level) {
+        if (!pmap) return;
+        var k = window.kakao;
+        if (level && pmap.getLevel() > level) pmap.setLevel(level);
+        pmap.panTo(new k.maps.LatLng(lat, lng));
+      }
       function doAddrSearch() {
         var q = bs.querySelector('#aq').value.trim();
-        var box = bs.querySelector('[data-alist]');
+        var list = bs.querySelector('[data-alist]');
         if (!q) return;
-        if (!kakaoReady) { box.innerHTML = '<div class="hint">지도를 불러오지 못해 검색할 수 없어요.</div>'; return; }
-        box.innerHTML = '<div class="hint">찾는 중…</div>';
+        if (!kakaoReady) { list.innerHTML = '<div class="hint">지도를 불러오지 못해 검색할 수 없어요.</div>'; return; }
+        list.innerHTML = '<div class="hint">찾는 중…</div>';
         searchPlaces(q, function (r) {
           results = r || [];
-          if (!results.length) { box.innerHTML = '<div class="hint">찾지 못했어요. 다른 이름이나 도로명 주소로 찾아보세요.</div>'; return; }
-          box.innerHTML = results.map(function (p, i) {
+          if (!results.length) { list.innerHTML = '<div class="hint">찾지 못했어요. 지도를 직접 움직여서 골라도 돼요.</div>'; return; }
+          list.innerHTML = results.map(function (p, i) {
             return '<button type="button" class="opt" data-ares="' + i + '"><div class="t">' + esc(p.place_name) + '</div>' +
               '<div class="s">' + (p.distance ? '<b class="dist">' + fmtDist(Number(p.distance)) + '</b> · ' : '') +
               esc(p.road_address_name || p.address_name || '') + '</div></button>';
           }).join('');
         });
       }
+
       bs.addEventListener('keydown', function (e) {
         if (e.key === 'Enter' && e.target.id === 'aq' && !e.isComposing) { e.preventDefault(); doAddrSearch(); }
       });
-      if (noPlace) setTimeout(function () { bs.querySelector('#aq').focus(); }, 80);
+      if (noPlace) openPicker();
+
       bs.addEventListener('click', function (e) {
         var r = e.target.closest('[data-ares]');
         if (r) {
           var p = results[Number(r.getAttribute('data-ares'))];
-          pending = { place: p.road_address_name || p.address_name || p.place_name, name: p.place_name, lat: Number(p.y), lng: Number(p.x) };
           bs.querySelectorAll('[data-ares]').forEach(function (b) { b.setAttribute('aria-pressed', String(b === r)); });
+          var plat = Number(p.y), plng = Number(p.x);
+          pickedName = p.place_name && p.place_name !== (p.road_address_name || p.address_name) ? p.place_name : '';
+          pickedAt = { lat: plat, lng: plng };
+          moveTo(plat, plng, 3);
           return;
         }
         var a = e.target.closest('[data-act]');
@@ -1334,10 +1441,15 @@
         else if (act === 'clear-time') clock.clear();
         else if (act === 'addr') {
           var box = bs.querySelector('[data-addrbox]');
-          box.hidden = !box.hidden;
-          if (!box.hidden) setTimeout(function () { bs.querySelector('#aq').focus(); }, 50);
+          if (box.hidden) openPicker(); else box.hidden = true;
         }
         else if (act === 'asearch') doAddrSearch();
+        else if (act === 'ame') {
+          getMyPos(function (pos) {
+            if (pos) moveTo(pos.lat, pos.lng, 4);
+            else toast('위치를 받지 못했어요');
+          });
+        }
         else if (act === 'del') {
           trip.stops = trip.stops.filter(function (s) { return s !== st; });
           save();
@@ -1348,10 +1460,12 @@
           if (time.start != null && time.end != null && time.start !== time.end) { st.start = time.start; st.end = time.end; }
           else { delete st.start; delete st.end; }
           var moved = false;
-          if (pending) {
-            st.place = pending.place === pending.name ? pending.place : pending.name + ' · ' + pending.place;
-            st.lat = pending.lat;
-            st.lng = pending.lng;
+          var boxOpen = !bs.querySelector('[data-addrbox]').hidden;
+          if (boxOpen && pick) {
+            var addr = pick.addr || (pick.lat.toFixed(5) + ', ' + pick.lng.toFixed(5));
+            st.place = pickedName ? pickedName + ' · ' + addr : addr;
+            st.lat = pick.lat;
+            st.lng = pick.lng;
             moved = true;
           }
           save();
