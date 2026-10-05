@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>우리 약속 노트 Ver.2</title>
+<meta name="theme-color" content="#b5476a">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="약속 노트">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #f7f3f4;
+    --paper: #fff;
+    --ink: #2b2230;
+    --muted: #7d6f7a;
+    --line: #e8dfe3;
+    --rose: #b5476a;
+    --rose-soft: #f6e3ea;
+    --plum: #4a2f45;
+    --ok: #3f7a5a;
+    --ok-soft: #e3f1e8;
+    --shadow: 0 1px 2px rgba(43, 34, 48, .06), 0 4px 14px rgba(43, 34, 48, .05);
+    --serif: "Gowun Batang", "Apple SD Gothic Neo", serif;
+    --sans: "IBM Plex Sans KR", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c171d;
+      --paper: #262028;
+      --ink: #f1e9ef;
+      --muted: #a8999f;
+      --line: #3a3039;
+      --rose: #e3829f;
+      --rose-soft: #3d2531;
+      --plum: #e9cfe0;
+      --ok: #7cc59a;
+      --ok-soft: #203229;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3);
+      color-scheme: dark;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  html, body { min-height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-tap-highlight-color: transparent;
+    animation: enter .3s ease both;
+  }
+  @keyframes enter { from { opacity: 0; } to { opacity: 1; } }
+
+  /* Ver.1의 머리말과 같은 자리·크기를 유지해서 버튼이 제자리에서 바뀐 것처럼 보이게 */
+  .wrap {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 0 max(16px, env(safe-area-inset-right)) calc(110px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    transition: opacity .24s ease, transform .24s ease;
+  }
+  body.switching .wrap { opacity: 0; transform: scale(.98); }
+  header.top {
+    position: relative;
+    min-height: calc(28px + 34px + env(safe-area-inset-top));
+    padding: calc(28px + env(safe-area-inset-top)) 2px 14px;
+  }
+  .verbtn {
+    position: absolute;
+    top: calc(28px + env(safe-area-inset-top));
+    right: 50px;
+    height: 34px;
+    padding: 0 13px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    color: var(--plum);
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: .02em;
+    display: grid;
+    place-items: center;
+    box-shadow: var(--shadow);
+    text-decoration: none;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="verbtn" id="verBtn" href="/" aria-label="버전 1로 돌아가기">Ver.1</a>
+  </header>
+
+  <main id="app"></main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  document.getElementById('verBtn').addEventListener('click', function (e) {
+    if (e.metaKey || e.ctrlKey) return;
+    e.preventDefault();
+    var href = this.getAttribute('href');
+    document.body.classList.add('switching');
+    setTimeout(function () { location.href = href; }, 220);
+  });
+  window.addEventListener('pageshow', function () { document.body.classList.remove('switching'); });
+
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    navigator.serviceWorker.register('/sw.js').catch(function () {});
+  }
+})();
+</script>
+</body>
+</html>
