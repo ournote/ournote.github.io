@@ -604,6 +604,75 @@
     cursor: pointer;
   }
   .ignorebtn[aria-pressed="true"] { border-color: var(--plum); background: var(--plum); color: var(--bg); }
+  /* 아래 버튼 줄: 전체보기 · 추가하기 · 확정 */
+  .addbar { align-items: center; gap: 8px; }
+  .sidebtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 38px;
+    padding: 0 13px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--muted);
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .sidebtn svg { width: 15px; height: 15px; }
+  #doneBtn[aria-pressed="true"] { border-color: #3f7a5a; background: #3f7a5a; color: #fff; }
+  @media (prefers-color-scheme: dark) { #doneBtn[aria-pressed="true"] { border-color: #7cc59a; background: #7cc59a; color: #1c171d; } }
+
+  /* 확정 후 지나간 일정: 체크한 것처럼, 각자 색을 흐리게 */
+  .stop.past { opacity: .62; }
+  .stop.past .tt { color: var(--muted); }
+  .stop.past .num { filter: saturate(.35); opacity: .7; }
+  .legwrap.past { opacity: .5; }
+  .pin.past { filter: saturate(.35); opacity: .55; }
+  .pin { transition: transform .3s ease, box-shadow .3s ease; }
+  .pin.focus { transform: scale(1.3); box-shadow: 0 0 0 4px rgba(181, 71, 106, .25), 0 2px 6px rgba(0, 0, 0, .3); z-index: 2; }
+
+  /* 전체보기 */
+  .whenrow { display: flex; gap: 8px; align-items: stretch; }
+  .whenrow .when { flex: 1; min-width: 0; }
+  .focusexit {
+    display: none;
+    flex: 0 0 auto;
+    width: 46px;
+    border: 1px solid var(--line);
+    background: var(--paper-60);
+    border-radius: 14px;
+    color: var(--plum);
+    cursor: pointer;
+    place-items: center;
+  }
+  .focusexit svg { width: 20px; height: 20px; }
+  body.focus { overflow: hidden; }
+  body.focus .wrap {
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: calc(12px + env(safe-area-inset-top));
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+  body.focus header.top, body.focus .sec, body.focus .trips, body.focus .addbar,
+  body.focus #delTrip, body.focus #delConfirm { display: none !important; }
+  body.focus .focusexit { display: grid; }
+  body.focus .days { margin-top: 0; flex: 0 0 auto; }
+  body.focus .whenrow { flex: 0 0 auto; }
+  body.focus .mapbox { flex: 0 0 42%; height: auto; min-height: 0; }
+  body.focus .stops {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px 2px 40vh;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16px);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 16px);
+  }
+  .stop.focus { border-color: var(--rose); }
 </style>
 </head>
 <body>
@@ -615,9 +684,14 @@
 
   <div class="sec">일시</div>
   <div class="trips" id="trips" role="tablist" aria-label="저장된 코스"></div>
-  <button class="when" id="whenBtn" type="button" aria-label="날짜 고르기">
-    <span>📅</span><span class="d" id="whenText"></span><span class="n" id="whenNights" hidden></span>
-  </button>
+  <div class="whenrow">
+    <button class="when" id="whenBtn" type="button" aria-label="날짜 고르기">
+      <span>📅</span><span class="d" id="whenText"></span><span class="n" id="whenNights" hidden></span>
+    </button>
+    <button class="focusexit" id="focusExit" type="button" aria-label="전체보기 끄기">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>
+    </button>
+  </div>
   <div class="days" id="days" hidden></div>
 
   <div class="sec">지도</div>
@@ -633,9 +707,17 @@
   <div class="sec">코스</div>
   <div class="stops" id="stops"></div>
   <div class="addbar">
+    <button class="sidebtn" id="focusBtn" type="button" aria-label="전체보기">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+      <span>전체보기</span>
+    </button>
     <button class="addbtn" id="addBtn" type="button">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       추가하기
+    </button>
+    <button class="sidebtn" id="doneBtn" type="button" aria-pressed="false" aria-label="확정">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      <span data-label>확정</span>
     </button>
   </div>
   <button type="button" class="dangerlink" id="delTrip">이 코스 지우기</button>
@@ -1002,7 +1084,7 @@
       warn = diff >= 0 ? '<span class="ok">' + (diff === 0 ? '딱 맞아요' : '여유 ' + minText(diff)) + '</span>'
         : '<span class="bad">⚠️ ' + minText(-diff) + ' 부족</span>';
     }
-    return '<div class="legwrap"><button type="button" class="legpill' + (L.mode ? ' set' : '') + '" data-leg="' + esc(cur.id) + '">' +
+    return '<div class="legwrap' + (isPast(cur) ? ' past' : '') + '"><button type="button" class="legpill' + (L.mode ? ' set' : '') + '" data-leg="' + esc(cur.id) + '">' +
       bits.join('<i>·</i>') + (warn ? '<i>·</i>' + warn : '') + '</button>' +
       (L.memo ? '<div class="legmemo">' + esc(L.memo) + '</div>' : '') + '</div>';
   }
@@ -1081,6 +1163,37 @@
     });
   }
 
+  // ---------- 확정: 지금 시각 기준으로 끝난 일정은 흐리게 ----------
+  function todayYmd() { return ymd(new Date()); }
+  function isPast(st) {
+    if (!trip || !trip.confirmed || !hasTime(st)) return false;
+    var d = trip.start ? addDays(trip.start, st.day || 0) : todayYmd();
+    var end = parse(d);
+    end.setMinutes(st.end + (st.end <= st.start ? 1440 : 0)); // 자정을 넘기는 일정
+    return Date.now() >= end.getTime();
+  }
+  var pastTimer = null;
+  function syncPastTimer() {
+    clearInterval(pastTimer);
+    if (trip && trip.confirmed) pastTimer = setInterval(function () { renderStops(); drawMap(false); }, 60000);
+  }
+  function renderDoneBtn() {
+    var b = document.getElementById('doneBtn');
+    var on = !!(trip && trip.confirmed);
+    b.setAttribute('aria-pressed', String(on));
+    b.querySelector('[data-label]').textContent = on ? '확정됨' : '확정';
+  }
+  document.getElementById('doneBtn').addEventListener('click', function () {
+    if (!trip) { toast('먼저 일정을 추가해 주세요'); return; }
+    trip.confirmed = !trip.confirmed;
+    save();
+    renderDoneBtn();
+    syncPastTimer();
+    renderStops();
+    drawMap(false);
+    toast(trip.confirmed ? '확정했어요. 지나간 일정은 흐리게 보여요' : '확정을 풀었어요');
+  });
+
   // ---------- 3. 코스 목록 ----------
   function renderStops() {
     var list = ordered();
@@ -1093,7 +1206,7 @@
     var html = '';
     list.forEach(function (st, i) {
       if (i > 0) html += legHtml(list[i - 1], st);
-      html += '<button type="button" class="stop" data-id="' + esc(st.id) + '">' +
+      html += '<button type="button" class="stop' + (isPast(st) ? ' past' : '') + '" data-id="' + esc(st.id) + '">' +
         '<span class="num" style="background:' + esc(st.color) + '">' + (i + 1) + '</span>' +
         '<span class="tx"><span class="tt">' + esc(st.title) + '</span>' +
         (st.place ? '<span class="mm" style="display:block">📍 ' + esc(st.place) + '</span>' : '<span class="mm noaddr" style="display:block">📍 주소 없음 · 눌러서 추가</span>') + '</span>' +
@@ -1117,6 +1230,9 @@
   });
 
   function renderAll(fit) {
+    focusedId = null;
+    renderDoneBtn();
+    syncPastTimer();
     renderTrips();
     renderWhen();
     renderStops();
@@ -1124,7 +1240,7 @@
   }
 
   // ---------- 2. 지도 ----------
-  var map = null, kakaoReady = false, overlays = [], line = null, geocoder = null, places = null, badges = [];
+  var map = null, kakaoReady = false, overlays = [], line = null, geocoder = null, places = null, badges = [], pinEls = {};
   // 이동 수단 아이콘은 그 구간 선이 화면에서 충분히 길게 보일 때만(확대할수록 짧은 구간도 나타남)
   var BADGE_MIN_PX = 240; // 이보다 짧게 보이면 숨김 (한 단계 더 확대하면 나타남)
   function updateBadges() {
@@ -1200,14 +1316,16 @@
     overlays = [];
     if (line) { line.forEach(function (l) { l.setMap(null); }); line = null; }
     var path = [], located = [];
+    pinEls = {};
     ordered().forEach(function (st, i) {
       if (st.lat == null) return;
       var pos = new k.maps.LatLng(st.lat, st.lng);
       path.push(pos);
       located.push(st);
       var el = document.createElement('div');
-      el.className = 'pin';
+      el.className = 'pin' + (isPast(st) ? ' past' : '');
       el.style.background = st.color;
+      pinEls[st.id] = el;
       el.textContent = String(i + 1);
       el.title = st.title;
       el.addEventListener('click', function () { openStop(st); });
@@ -1236,7 +1354,7 @@
         path: seg,
         strokeWeight: mv ? 4 : 3,
         strokeColor: '#b5476a',
-        strokeOpacity: mv ? 0.8 : 0.5,
+        strokeOpacity: isPast(b2) ? 0.22 : (mv ? 0.8 : 0.5),
         strokeStyle: mv ? mv.line : 'shortdash'
       });
       pl.setMap(map);
@@ -1841,6 +1959,69 @@
     });
   }
   document.getElementById('addBtn').addEventListener('click', openAdd);
+
+  // ---------- 전체보기: 날짜·지도·코스만 화면에 꽉 차게, 코스만 스크롤 ----------
+  var focusOn = false, focusedId = null, panAnim = null;
+  var stopsEl = document.getElementById('stops');
+  function smoothPan(lat, lng) {
+    if (!map) return;
+    if (panAnim) cancelAnimationFrame(panAnim);
+    var c = map.getCenter();
+    var a0 = c.getLat(), b0 = c.getLng(), t0 = performance.now(), dur = 650;
+    var k = window.kakao;
+    function step(t) {
+      var p = Math.min(1, (t - t0) / dur);
+      var e = p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2; // 부드럽게 출발·도착
+      map.setCenter(new k.maps.LatLng(a0 + (lat - a0) * e, b0 + (lng - b0) * e));
+      if (p < 1) panAnim = requestAnimationFrame(step);
+      else panAnim = null;
+    }
+    panAnim = requestAnimationFrame(step);
+  }
+  // 코스 목록에서 보이는 것 중 가장 위 일정으로 지도 이동
+  function focusTopStop() {
+    if (!focusOn || !trip) return;
+    var top = stopsEl.getBoundingClientRect().top + 6;
+    var rows = stopsEl.querySelectorAll('.stop');
+    var hit = null;
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i].getBoundingClientRect();
+      if (r.bottom > top + r.height * 0.35) { hit = rows[i]; break; }
+    }
+    if (!hit) return;
+    var id = hit.getAttribute('data-id');
+    stopsEl.querySelectorAll('.stop.focus').forEach(function (b) { if (b !== hit) b.classList.remove('focus'); });
+    hit.classList.add('focus');
+    if (id === focusedId) return;
+    focusedId = id;
+    Object.keys(pinEls).forEach(function (k) { pinEls[k].classList.toggle('focus', k === id); });
+    var st = trip.stops.find(function (s) { return s.id === id; });
+    if (st && st.lat != null) smoothPan(st.lat, st.lng);
+  }
+  var scrollTick = false;
+  stopsEl.addEventListener('scroll', function () {
+    if (scrollTick) return;
+    scrollTick = true;
+    requestAnimationFrame(function () { scrollTick = false; focusTopStop(); });
+  }, { passive: true });
+  function setFocus(on) {
+    focusOn = on;
+    document.body.classList.toggle('focus', on);
+    focusedId = null;
+    if (!on) {
+      Object.keys(pinEls).forEach(function (k) { pinEls[k].classList.remove('focus'); });
+      stopsEl.querySelectorAll('.stop.focus').forEach(function (b) { b.classList.remove('focus'); });
+    }
+    stopsEl.scrollTop = 0;
+    window.scrollTo(0, 0);
+    setTimeout(function () {
+      if (map) { map.relayout(); drawMap(!on); }
+      if (on) focusTopStop();
+    }, 80);
+  }
+  document.getElementById('focusBtn').addEventListener('click', function () { setFocus(true); });
+  document.getElementById('focusExit').addEventListener('click', function () { setFocus(false); });
+
 
   // ---------- 장소 하나: 시간 바꾸기·빼기 ----------
   // 장소 검색(가까운 순 설정 따름). 이름으로 못 찾으면 주소로도 한 번 더 찾음
