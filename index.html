@@ -75,7 +75,7 @@
   }
 
   header.top { position: relative; padding: calc(28px + env(safe-area-inset-top)) 2px 14px; }
-  header.top h1 { padding-right: 124px; }
+  header.top h1 { padding-right: 52px; }
   .verbtn {
     position: absolute;
     top: calc(28px + env(safe-area-inset-top));
@@ -99,7 +99,7 @@
   .netbtn {
     position: absolute;
     top: calc(24px + env(safe-area-inset-top));
-    right: 68px;
+    right: 0;
     width: 42px;
     height: 42px;
     border-radius: 50%;
@@ -432,13 +432,15 @@
   /* 끌어내려 닫기: 손잡이 주변을 넓게 잡히도록 */
   .grip-zone { margin: -10px -20px 0; padding: 10px 20px 2px; touch-action: none; cursor: grab; }
   .grip-zone + h2, .grip-zone ~ h2 { touch-action: none; }
+  /* 버전 바꾸기 버튼: 맨 아래 가운데 */
+  .verbar { display: flex; justify-content: center; margin-top: 30px; }
+  .verbar .verbtn { position: static; display: inline-grid; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
     <h1>우리 약속 노트</h1>
-    <a class="verbtn" id="verBtn" href="/v2.html" aria-label="버전 2로 전환">Ver.2</a>
     <a class="netbtn" id="netBtn" href="/graph.html" aria-label="약속 네트워크 분석">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
         <path d="M6 6.5l5 4M12 11l6-4.5M12 11l-5 7M12 11l5.5 6.5M6 6.5L7 18M18 6.5l-.5 11"/>
@@ -460,6 +462,7 @@
     <input type="file" id="importFile" accept="application/json,.json" hidden>
   </div>
   <a class="maplink-page" href="/map.html">🗺️ 데이트코스 지도 바로가기 →</a>
+  <div class="verbar"><a class="verbtn" id="verBtn" href="/v2.html" aria-label="버전 2로 전환">Ver.2</a></div>
 </div>
 
 <button class="fab" id="fab" type="button" aria-label="새 약속">

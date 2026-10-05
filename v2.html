@@ -15,6 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="prefetch" href="/course.html">
+<link rel="prefetch" href="/map.html">
 <link rel="preconnect" href="https://dapi.kakao.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=Great+Vibes&display=swap">
 <style>
@@ -84,7 +85,7 @@
   }
   header.top h1 {
     margin: 0;
-    padding-right: 116px;
+    padding-right: 0;
     font-family: var(--script);
     font-weight: 400;
     font-size: 46px;
@@ -484,13 +485,16 @@
   /* 끌어내려 닫기: 손잡이 주변을 넓게 잡히도록 */
   .grip-zone { margin: -10px -20px 0; padding: 10px 20px 2px; touch-action: none; cursor: grab; }
   .grip-zone + h2, .grip-zone ~ h2 { touch-action: none; }
+  /* 버전 바꾸기 버튼: 맨 아래 가운데 */
+  .verbar { display: flex; justify-content: center; margin-top: 30px; }
+  .verbar .verbtn { position: static; display: inline-grid; }
+  .maplink-page.next { margin-top: 10px; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
     <h1>Our note</h1>
-    <a class="verbtn" id="verBtn" href="/" aria-label="버전 1로 돌아가기">Ver.1</a>
   </header>
 
   <main id="app">
@@ -509,6 +513,8 @@
       </button>
     </div>
     <a class="maplink-page" id="courseLink" href="/course.html">🗺️ 데이트 코스 만들기 →</a>
+    <a class="maplink-page next" id="mapLink" href="/map.html">🗺️ 데이트코스 지도 바로가기 →</a>
+    <div class="verbar"><a class="verbtn" id="verBtn" href="/" aria-label="버전 1로 돌아가기">Ver.1</a></div>
   </main>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -529,6 +535,13 @@
     setTimeout(function () { location.replace(href); }, 120);
   });
   window.addEventListener('pageshow', function () { document.body.classList.remove('switching'); });
+  document.getElementById('mapLink').addEventListener('click', function (e) {
+    if (e.metaKey || e.ctrlKey) return;
+    e.preventDefault();
+    var href = this.getAttribute('href');
+    document.body.classList.add('switching');
+    setTimeout(function () { location.href = href; }, 120);
+  });
   document.getElementById('courseLink').addEventListener('click', function (e) {
     if (e.metaKey || e.ctrlKey) return;
     e.preventDefault();
