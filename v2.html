@@ -481,6 +481,9 @@
     font-size: 14.5px;
     text-decoration: none;
   }
+  /* 끌어내려 닫기: 손잡이 주변을 넓게 잡히도록 */
+  .grip-zone { margin: -10px -20px 0; padding: 10px 20px 2px; touch-action: none; cursor: grab; }
+  .grip-zone + h2, .grip-zone ~ h2 { touch-action: none; }
 </style>
 </head>
 <body>
@@ -685,15 +688,55 @@
 
   // ---------- 바텀시트 ----------
   var stack = [];
+  // 손잡이(회색 막대)나 제목을 잡고 아래로 끌어내리면 닫기
+  function enableDragClose(ov, sheet) {
+    var startY = 0, dy = 0, dragging = false, samples = [];
+    sheet.addEventListener('pointerdown', function (e) {
+      if (!e.target.closest('.grip, .grip-zone, h2')) return;
+      dragging = true;
+      startY = e.clientY;
+      dy = 0;
+      samples = [[Date.now(), 0]];
+      sheet.style.transition = 'none';
+      try { sheet.setPointerCapture(e.pointerId); } catch (err) { /* 없어도 됨 */ }
+    });
+    sheet.addEventListener('pointermove', function (e) {
+      if (!dragging) return;
+      dy = Math.max(0, e.clientY - startY);
+      samples.push([Date.now(), dy]);
+      if (samples.length > 6) samples.shift();
+      sheet.style.transform = dy ? 'translateY(' + dy + 'px)' : '';
+      ov.style.opacity = String(Math.max(0.4, 1 - dy / 500));
+    });
+    function up() {
+      if (!dragging) return;
+      dragging = false;
+      // 마지막 움직임의 속도로 휙 내린 것도 닫기
+      var first = samples[0], now = Date.now();
+      var speed = (dy - first[1]) / Math.max(1, now - first[0]);
+      sheet.style.transition = '';
+      ov.style.opacity = '';
+      if (dy > 90 || (speed > 0.6 && dy > 24)) {
+        sheet.style.transform = 'translateY(100%)';
+        closeSheet();
+      } else {
+        sheet.style.transform = '';
+      }
+    }
+    sheet.addEventListener('pointerup', up);
+    sheet.addEventListener('pointercancel', up);
+  }
+
   function openSheet(html, onMount) {
     var ov = document.createElement('div');
     ov.className = 'ov';
-    ov.innerHTML = '<div class="bs" role="dialog" aria-modal="true"><div class="grip"></div>' + html + '</div>';
+    ov.innerHTML = '<div class="bs" role="dialog" aria-modal="true"><div class="grip-zone"><div class="grip"></div></div>' + html + '</div>';
     ov.addEventListener('click', function (e) { if (e.target === ov) closeSheet(); });
     document.body.appendChild(ov);
     document.body.classList.add('locked');
     stack.push(ov);
     requestAnimationFrame(function () { ov.classList.add('show'); });
+    enableDragClose(ov, ov.querySelector('.bs'));
     if (onMount) onMount(ov.querySelector('.bs'));
   }
   function closeSheet() {
