@@ -242,6 +242,139 @@
     word-break: keep-all;
   }
 
+
+  [hidden] { display: none !important; }
+  body.locked { overflow: hidden; }
+
+  /* ---------- 등록하기 버튼 ---------- */
+  .addbar { display: flex; justify-content: center; margin-top: 16px; }
+  .addbtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 42px;
+    padding: 0 22px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--paper-60);
+    color: var(--rose);
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: 14.5px;
+    letter-spacing: .02em;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: transform .15s ease;
+  }
+  .addbtn:active { transform: scale(.97); }
+  .addbtn svg { width: 15px; height: 15px; }
+  .row { cursor: pointer; }
+
+  /* ---------- 바텀시트 ---------- */
+  .ov {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    background: rgba(28, 20, 26, .32);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity .25s ease;
+  }
+  .ov.show { opacity: 1; }
+  .bs {
+    width: 100%;
+    max-width: 560px;
+    max-height: calc(100% - 24px - env(safe-area-inset-top));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    background: var(--paper);
+    border-radius: 18px 18px 0 0;
+    padding: 10px 20px calc(20px + env(safe-area-inset-bottom));
+    transform: translateY(30px);
+    transition: transform .3s cubic-bezier(.22,.8,.3,1);
+  }
+  .ov.show .bs { transform: none; }
+  .grip { width: 38px; height: 4px; border-radius: 4px; background: var(--line); margin: 0 auto 14px; }
+  .bs h2 {
+    margin: 0 0 16px;
+    font-family: var(--serif);
+    font-size: 19px;
+    color: var(--plum);
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  .fld { margin-bottom: 12px; }
+  .fld label, .fld .lab { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 5px; }
+  .fld .req { color: var(--rose); }
+  .fld input, .fld textarea {
+    width: 100%;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 12px;
+    padding: 10px 12px;
+    font: inherit;
+    font-size: 16px;
+    outline: none;
+  }
+  .fld textarea { resize: vertical; min-height: 64px; }
+  .fld input:focus, .fld textarea:focus { border-color: var(--rose); }
+  .fld.err input { border-color: var(--rose); background: var(--rose-soft); }
+  .cats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .cat {
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 12px;
+    padding: 10px 8px;
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .cat[aria-pressed="true"] { border-color: var(--rose); background: var(--rose-soft); color: var(--rose); font-weight: 600; }
+  .acts { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+  .btn {
+    border: 1px solid var(--line);
+    background: var(--paper);
+    color: var(--ink);
+    border-radius: 12px;
+    padding: 10px 18px;
+    font: inherit;
+    font-size: 15px;
+    cursor: pointer;
+  }
+  .btn.pri { background: var(--rose); border-color: var(--rose); color: var(--paper); font-weight: 600; }
+
+  /* 세부내용 */
+  .chip {
+    display: inline-block;
+    background: var(--rose-soft);
+    color: var(--rose);
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .dtop { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .ddone { font-size: 12.5px; color: var(--ok); font-weight: 500; }
+  .dl { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
+  .di { display: flex; gap: 10px; font-size: 14.5px; line-height: 1.55; }
+  .di .ic { flex: 0 0 22px; text-align: center; }
+  .di .v { flex: 1; min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+  .di a { color: var(--rose); text-decoration: none; }
+  .di .map {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0 6px;
+    white-space: nowrap;
+  }
+  .review { background: var(--ok-soft); border-radius: 12px; padding: 10px 12px; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .dempty { color: var(--muted); font-size: 14px; }
 </style>
 </head>
 <body>
@@ -255,6 +388,12 @@
     <div class="stage">
       <div class="ptitles" id="ptitles" aria-live="polite"></div>
       <div class="deck" id="deck"></div>
+    </div>
+    <div class="addbar">
+      <button class="addbtn" id="addBtn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        등록하기
+      </button>
     </div>
   </main>
 </div>
@@ -416,9 +555,142 @@
 
   deck.addEventListener('click', function (e) {
     var ck = e.target.closest('.ck');
-    if (!ck) return;
-    toggle(ck.closest('.row').getAttribute('data-id'));
+    if (ck) { toggle(ck.closest('.row').getAttribute('data-id')); return; }
+    var row = e.target.closest('.row');
+    if (row) openDetail(row.getAttribute('data-id'));
   });
+
+  // ---------- 바텀시트 ----------
+  var stack = [];
+  function openSheet(html, onMount) {
+    var ov = document.createElement('div');
+    ov.className = 'ov';
+    ov.innerHTML = '<div class="bs" role="dialog" aria-modal="true"><div class="grip"></div>' + html + '</div>';
+    ov.addEventListener('click', function (e) { if (e.target === ov) closeSheet(); });
+    document.body.appendChild(ov);
+    document.body.classList.add('locked');
+    stack.push(ov);
+    requestAnimationFrame(function () { ov.classList.add('show'); });
+    if (onMount) onMount(ov.querySelector('.bs'));
+  }
+  function closeSheet() {
+    var ov = stack.pop();
+    if (!ov) return;
+    ov.classList.remove('show');
+    setTimeout(function () { ov.remove(); }, 260);
+    if (!stack.length) document.body.classList.remove('locked');
+  }
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && stack.length) { e.preventDefault(); closeSheet(); }
+  });
+
+  function fld(id, label, opts) {
+    opts = opts || {};
+    var input = opts.textarea
+      ? '<textarea id="' + id + '" rows="3" placeholder="' + esc(opts.ph || '') + '"></textarea>'
+      : '<input id="' + id + '" type="text" placeholder="' + esc(opts.ph || '') + '" autocomplete="off"' + (opts.mode ? ' inputmode="' + opts.mode + '"' : '') + '>';
+    return '<div class="fld" data-f="' + id + '"><label for="' + id + '">' + label + (opts.req ? ' <span class="req">*</span>' : '') + '</label>' + input + '</div>';
+  }
+
+  // ---------- 등록하기 ----------
+  function uid() { return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8); }
+
+  function openAdd() {
+    var pageId = PAGES[current] ? PAGES[current].id : 'all';
+    var cat = CAT[pageId] ? pageId : 'food';
+    var html = '<h2>새 약속</h2>' +
+      fld('a-title', '무엇을', { req: true, ph: '예) 성수동 소금빵 같이 먹기' }) +
+      '<div class="fld"><span class="lab">카테고리</span><div class="cats">' +
+      Object.keys(CAT).map(function (k) {
+        return '<button type="button" class="cat" data-cat="' + k + '" aria-pressed="' + (k === cat) + '">' + CAT[k].emoji + ' ' + esc(CAT[k].label) + '</button>';
+      }).join('') + '</div></div>' +
+      fld('a-place', '주소', { ph: '지도에서 찾을 주소나 가게 이름' }) +
+      fld('a-link', '링크', { ph: 'https://', mode: 'url' }) +
+      fld('a-memo', '메모', { textarea: true, ph: '영업시간, 메뉴, 사이즈 등' }) +
+      fld('a-when', '목표 시기', { ph: '예) 12월, 100일, 다음 휴가' }) +
+      '<div class="acts"><button type="button" class="btn" data-act="close">닫기</button>' +
+      '<button type="button" class="btn pri" data-act="save">저장</button></div>';
+
+    openSheet(html, function (bs) {
+      var title = bs.querySelector('#a-title');
+      setTimeout(function () { title.focus(); }, 80);
+      title.addEventListener('input', function () { bs.querySelector('[data-f="a-title"]').classList.remove('err'); });
+
+      function save() {
+        var t = title.value.trim();
+        if (!t) {
+          bs.querySelector('[data-f="a-title"]').classList.add('err');
+          title.focus();
+          return;
+        }
+        var list = loadRaw();
+        var maxCreated = list.reduce(function (m, x) { return Math.max(m, Number(x && x.createdAt) || 0); }, 0);
+        list.push({
+          id: uid(),
+          title: t,
+          cat: cat,
+          place: bs.querySelector('#a-place').value.trim(),
+          link: bs.querySelector('#a-link').value.trim(),
+          memo: bs.querySelector('#a-memo').value.trim(),
+          when: bs.querySelector('#a-when').value.trim(),
+          done: false,
+          doneAt: '',
+          review: '',
+          createdAt: Math.max(Date.now(), maxCreated + 1)
+        });
+        saveRaw(list);
+        renderAll(false);
+        closeSheet();
+      }
+
+      bs.addEventListener('click', function (e) {
+        var c = e.target.closest('[data-cat]');
+        if (c) {
+          cat = c.getAttribute('data-cat');
+          bs.querySelectorAll('[data-cat]').forEach(function (b) { b.setAttribute('aria-pressed', String(b === c)); });
+          return;
+        }
+        var a = e.target.closest('[data-act]');
+        if (!a) return;
+        if (a.getAttribute('data-act') === 'close') closeSheet();
+        else save();
+      });
+      bs.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && e.target.tagName === 'INPUT' && !e.isComposing) { e.preventDefault(); save(); }
+      });
+    });
+  }
+  document.getElementById('addBtn').addEventListener('click', openAdd);
+
+  // ---------- 세부내용 ----------
+  function openDetail(id) {
+    var it = loadRaw().find(function (x) { return x && String(x.id) === id; });
+    if (!it) return;
+    var c = CAT[it.cat] || CAT.food;
+    var rows = [];
+    if (it.place) {
+      rows.push('<div class="di"><span class="ic">📍</span><span class="v">' + esc(it.place) +
+        '<a class="map" href="https://map.naver.com/p/search/' + encodeURIComponent(it.place) + '" target="_blank" rel="noopener">지도</a></span></div>');
+    }
+    if (it.link) {
+      var link = String(it.link);
+      rows.push('<div class="di"><span class="ic">🔗</span><span class="v">' + (/^https?:\/\//i.test(link)
+        ? '<a href="' + esc(link) + '" target="_blank" rel="noopener">' + esc(link.replace(/^https?:\/\//i, '')) + '</a>'
+        : esc(link)) + '</span></div>');
+    }
+    if (it.memo) rows.push('<div class="di"><span class="ic">📝</span><span class="v">' + esc(it.memo) + '</span></div>');
+    if (it.when) rows.push('<div class="di"><span class="ic">⏳</span><span class="v">' + esc(it.when) + '</span></div>');
+    if (it.done === true && it.review) rows.push('<div class="review">' + esc(it.review) + '</div>');
+
+    var html = '<div class="dtop"><span class="chip">' + c.emoji + ' ' + esc(c.label) + '</span>' +
+      (it.done === true && it.doneAt ? '<span class="ddone">' + esc(String(it.doneAt).replace(/-/g, '.')) + ' 완료</span>' : '') + '</div>' +
+      '<h2>' + esc(it.title) + '</h2>' +
+      (rows.length ? '<div class="dl">' + rows.join('') + '</div>' : '<div class="dempty">적어둔 세부내용이 없어요.</div>') +
+      '<div class="acts"><button type="button" class="btn" data-act="close">닫기</button></div>';
+    openSheet(html, function (bs) {
+      bs.querySelector('[data-act="close"]').addEventListener('click', closeSheet);
+    });
+  }
 
   // ---------- 스와이프에 따라 제목이 스르르 바뀜 ----------
   var ticking = false, current = 0;
