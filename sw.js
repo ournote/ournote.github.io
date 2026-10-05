@@ -1,5 +1,5 @@
 // 배포할 때마다 VERSION을 올리면 이전 캐시가 정리되고 새 앱 셸이 저장된다.
-const VERSION = 'v1.2.0';
+const VERSION = 'v1.3.0';
 const SHELL_CACHE = 'ournote-shell-' + VERSION;
 const FONT_CACHE = 'ournote-fonts';
 const SHELL = [
@@ -7,6 +7,7 @@ const SHELL = [
   '/index.html',
   '/map.html',
   '/graph.html',
+  '/v2.html',
   '/manifest.webmanifest',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
