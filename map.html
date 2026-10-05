@@ -319,7 +319,7 @@
 <body>
 <div class="wrap">
   <header class="top">
-    <a class="back" href="/">← 약속 노트</a>
+    <a class="back" id="backBtn" href="/">← 약속 노트</a>
     <h1>데이트코스 지도</h1>
     <p>주소를 적어둔 약속 장소 <b id="placeCount">0</b>곳</p>
   </header>
@@ -774,6 +774,25 @@
     el.addEventListener('touchend', end, { capture: true, passive: false });
     el.addEventListener('touchcancel', end, { capture: true, passive: false });
   }
+
+  // 화면 안 뒤로가기: 바로 전 화면이 그 페이지면 진짜 뒤로가기(기록 한 칸 빼기),
+  // 아니면 기록을 남기지 않고 바꿔치기 → 스와이프 뒤로가기로 방금 화면이 다시 나오지 않음
+  function goBackTo(href) {
+    function norm(p) { return p === '/index.html' ? '/' : p; }
+    var target = norm(new URL(href, location.href).pathname);
+    var prev = '';
+    try { prev = document.referrer ? norm(new URL(document.referrer).pathname) : ''; } catch (e) { prev = ''; }
+    var sameSite = false;
+    try { sameSite = !!document.referrer && new URL(document.referrer).origin === location.origin; } catch (e) { sameSite = false; }
+    if (sameSite && prev === target && history.length > 1) history.back();
+    else location.replace(href);
+  }
+
+  document.getElementById('backBtn').addEventListener('click', function (e) {
+    if (e.metaKey || e.ctrlKey) return;
+    e.preventDefault();
+    goBackTo(this.getAttribute('href'));
+  });
 
   // ---------- 이벤트 ----------
   document.getElementById('tabs').addEventListener('click', function (e) {
