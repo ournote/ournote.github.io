@@ -689,21 +689,35 @@
     var lastTapEnd = 0, lastX = 0, lastY = 0;
     var downAt = 0, downX = 0, downY = 0, wasTap = true;
     var zooming = false, startY = 0, startLevel = 0, anchor = null, moved = false;
-    var STEP = 45; // 이만큼(px) 끌 때마다 한 단계
+    var ox = 0, oy = 0;          // 확대 기준점 (지도 안 좌표)
+    var committed = 0;           // 지도에 실제로 반영한 단계 변화
+    var desired = 0;             // 손가락이 원하는 단계 변화 (소수)
+    var STEP = 70;               // 이만큼(px) 끌면 한 단계(2배)
+    var MIN = 1, MAX = 14;
     function stop(e) { e.preventDefault(); e.stopPropagation(); }
+    function setScale(v, animate) {
+      el.style.transition = animate ? 'transform .18s ease-out' : 'none';
+      el.style.transformOrigin = ox + 'px ' + oy + 'px';
+      el.style.transform = v === 1 ? '' : 'scale(' + v.toFixed(4) + ')';
+    }
+    function applyLevel(delta) {
+      m.setLevel(startLevel + delta, anchor ? { anchor: anchor } : undefined);
+    }
     el.addEventListener('touchstart', function (e) {
-      if (e.touches.length !== 1) { zooming = false; return; }
+      if (e.touches.length !== 1) { return; }
       var t = e.touches[0], now = Date.now();
       if (now - lastTapEnd < 320 && Math.abs(t.clientX - lastX) < 40 && Math.abs(t.clientY - lastY) < 40) {
         zooming = true;
         moved = false;
         startY = t.clientY;
         startLevel = m.getLevel();
+        committed = 0;
+        desired = 0;
+        var r = el.getBoundingClientRect();
+        ox = t.clientX - r.left;
+        oy = t.clientY - r.top;
         anchor = null;
-        try {
-          var r = el.getBoundingClientRect();
-          anchor = m.getProjection().coordsFromContainerPoint(new window.kakao.maps.Point(t.clientX - r.left, t.clientY - r.top));
-        } catch (err) { anchor = null; }
+        try { anchor = m.getProjection().coordsFromContainerPoint(new window.kakao.maps.Point(ox, oy)); } catch (err) { anchor = null; }
         m.setDraggable(false);
         stop(e);
         return;
@@ -718,17 +732,37 @@
       }
       stop(e);
       var dy = e.touches[0].clientY - startY;
-      if (Math.abs(dy) > 8) moved = true;
-      var lv = Math.max(1, Math.min(14, startLevel + Math.round(dy / STEP)));
-      if (lv !== m.getLevel()) m.setLevel(lv, anchor ? { anchor: anchor } : undefined);
+      if (Math.abs(dy) > 6) moved = true;
+      // 위로 끌면(dy<0) 단계가 작아짐 = 확대
+      desired = Math.max(MIN - startLevel, Math.min(MAX - startLevel, dy / STEP));
+      // 한 단계 넘게 벌어지면 지도에 반영해서 화면이 흐려지지 않게
+      var target = Math.round(desired);
+      if (Math.abs(desired - committed) >= 0.75 && target !== committed) {
+        committed = target;
+        applyLevel(committed);
+      }
+      setScale(Math.pow(2, committed - desired), false);
     }, { capture: true, passive: false });
     function end(e) {
       if (zooming) {
         stop(e);
-        if (!moved) m.setLevel(Math.max(1, startLevel - 1), anchor ? { anchor: anchor, animate: true } : { animate: true }); // 그냥 두 번 탭 = 한 단계 확대
         zooming = false;
-        m.setDraggable(true);
         lastTapEnd = 0;
+        if (!moved) { // 그냥 두 번 탭 = 한 단계 확대
+          setScale(1, false);
+          m.setLevel(Math.max(MIN, startLevel - 1), anchor ? { anchor: anchor, animate: true } : { animate: true });
+          m.setDraggable(true);
+          return;
+        }
+        // 가장 가까운 단계로 스르르 맞춘 뒤 지도에 반영
+        var fin = Math.round(desired);
+        setScale(Math.pow(2, committed - fin), true);
+        setTimeout(function () {
+          if (fin !== committed) applyLevel(fin);
+          committed = fin;
+          setScale(1, false);
+          m.setDraggable(true);
+        }, 190);
         return;
       }
       if (wasTap && Date.now() - downAt < 250) { lastTapEnd = Date.now(); lastX = downX; lastY = downY; }
