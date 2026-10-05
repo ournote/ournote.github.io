@@ -522,6 +522,7 @@
 <script>
 (function () {
   'use strict';
+  try { localStorage.setItem('ournote:version', '2'); } catch (e) { /* 없어도 됨 */ }
 
   // iOS 사파리는 user-scalable=no를 무시할 때가 있어 두 손가락 확대도 직접 막음
   document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
@@ -532,6 +533,7 @@
     var href = this.getAttribute('href');
     document.body.classList.add('switching');
     // 버전 전환은 기록을 남기지 않아 스와이프 뒤로가기로 돌아가지 않게
+    try { localStorage.setItem('ournote:version', '1'); } catch (err) { /* 없어도 됨 */ }
     setTimeout(function () { location.replace(href); }, 120);
   });
   window.addEventListener('pageshow', function () { document.body.classList.remove('switching'); });

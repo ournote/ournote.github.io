@@ -2,6 +2,10 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
+<script>
+  // 마지막으로 보던 버전이 Ver.2면 앱을 켤 때 바로 Ver.2로
+  try { if (localStorage.getItem('ournote:version') === '2') location.replace('/v2.html'); } catch (e) { /* 저장소를 못 쓰면 Ver.1 */ }
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>우리 약속 노트</title>
 <meta name="description" content="같이 하기로 한 것, 해주기로 한 것">
@@ -895,6 +899,7 @@
     var href = this.getAttribute('href');
     document.body.classList.add('switching');
     // 버전 전환은 기록을 남기지 않아 스와이프 뒤로가기로 돌아가지 않게
+    try { localStorage.setItem('ournote:version', '2'); } catch (err) { /* 없어도 됨 */ }
     setTimeout(function () { location.replace(href); }, 120);
   });
   window.addEventListener('pageshow', function () { document.body.classList.remove('leaving', 'switching'); });
