@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-title" content="약속 노트">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=Great+Vibes&display=swap">
 <style>
   :root {
     --bg: #f7f3f4;
@@ -29,6 +29,7 @@
     --ok-soft: #e3f1e8;
     --shadow: 0 1px 2px rgba(43, 34, 48, .06), 0 4px 14px rgba(43, 34, 48, .05);
     --serif: "Gowun Batang", "Apple SD Gothic Neo", serif;
+    --script: "Great Vibes", "Snell Roundhand", "Apple Chancery", cursive;
     --sans: "IBM Plex Sans KR", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
     color-scheme: light;
   }
@@ -77,6 +78,16 @@
     min-height: calc(28px + 34px + env(safe-area-inset-top));
     padding: calc(28px + env(safe-area-inset-top)) 2px 14px;
   }
+  header.top h1 {
+    margin: 0;
+    padding-right: 124px;
+    font-family: var(--script);
+    font-weight: 400;
+    font-size: 46px;
+    line-height: 1.1;
+    letter-spacing: .01em;
+    color: var(--plum);
+  }
   .verbtn {
     position: absolute;
     top: calc(28px + env(safe-area-inset-top));
@@ -101,6 +112,7 @@
 <body>
 <div class="wrap">
   <header class="top">
+    <h1>Our Date</h1>
     <a class="verbtn" id="verBtn" href="/" aria-label="버전 1로 돌아가기">Ver.1</a>
   </header>
 
