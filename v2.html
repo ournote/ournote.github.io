@@ -431,13 +431,21 @@
       var pos = deck.scrollLeft / w;
       layoutPills(pos);
       var idx = Math.round(pos);
-      if (idx !== current) {
-        current = idx;
-        try { localStorage.setItem(PAGE_KEY, String(idx)); } catch (e) { /* 위치 기억은 없어도 됨 */ }
-      }
+      current = idx;
     });
   }
   deck.addEventListener('scroll', onScroll, { passive: true });
+
+  // 마지막으로 본 칸은 넘기기가 다 끝난 뒤에 한 번만 저장 (넘기는 도중 저장하면 버벅일 수 있음)
+  var savedPage = null, saveTimer = null;
+  deck.addEventListener('scroll', function () {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      if (current === savedPage) return;
+      savedPage = current;
+      try { localStorage.setItem(PAGE_KEY, String(current)); } catch (e) { /* 위치 기억은 없어도 됨 */ }
+    }, 300);
+  }, { passive: true });
   window.addEventListener('resize', function () { deck.scrollLeft = current * deck.clientWidth; measurePills(); onScroll(); });
 
   // 알약들을 한 줄로 이어 붙이고, 넘긴 만큼 줄 전체가 미끄러지게
@@ -484,6 +492,7 @@
 
   renderAll(true);
   try { current = Math.max(0, Math.min(PAGES.length - 1, Number(localStorage.getItem(PAGE_KEY)) || 0)); } catch (e) { current = 0; }
+  savedPage = current;
   deck.scrollLeft = current * deck.clientWidth;
   onScroll();
 
