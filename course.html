@@ -14,6 +14,9 @@
 <meta name="apple-mobile-web-app-title" content="약속 노트">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://dapi.kakao.com">
+<link rel="preconnect" href="https://t1.daumcdn.net">
+<link rel="dns-prefetch" href="https://map.daumcdn.net">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=Great+Vibes&display=swap">
 <style>
   :root {
@@ -59,7 +62,7 @@
     font-size: 15px;
     line-height: 1.5;
     -webkit-tap-highlight-color: transparent;
-    animation: enter .3s ease both;
+    animation: enter .2s ease both;
   }
   body.locked { overflow: hidden; }
   @keyframes enter { from { opacity: 0; } to { opacity: 1; } }
@@ -69,7 +72,7 @@
     max-width: 560px;
     margin: 0 auto;
     padding: 0 max(16px, env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-    transition: opacity .24s ease, transform .24s ease;
+    transition: opacity .12s ease, transform .12s ease;
   }
   body.switching .wrap { opacity: 0; transform: scale(.98); }
 
@@ -1603,7 +1606,7 @@
     e.preventDefault();
     var href = this.getAttribute('href');
     document.body.classList.add('switching');
-    setTimeout(function () { location.href = href; }, 220);
+    setTimeout(function () { location.href = href; }, 120);
   });
   window.addEventListener('pageshow', function () { document.body.classList.remove('switching'); });
 
