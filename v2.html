@@ -96,7 +96,7 @@
   .verbtn {
     position: absolute;
     top: calc(28px + env(safe-area-inset-top));
-    right: 50px;
+    right: 0;
     height: 34px;
     padding: 0 13px;
     border-radius: 999px;
@@ -522,7 +522,8 @@
     e.preventDefault();
     var href = this.getAttribute('href');
     document.body.classList.add('switching');
-    setTimeout(function () { location.href = href; }, 120);
+    // 버전 전환은 기록을 남기지 않아 스와이프 뒤로가기로 돌아가지 않게
+    setTimeout(function () { location.replace(href); }, 120);
   });
   window.addEventListener('pageshow', function () { document.body.classList.remove('switching'); });
   document.getElementById('courseLink').addEventListener('click', function (e) {
