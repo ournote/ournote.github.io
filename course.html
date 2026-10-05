@@ -1385,7 +1385,7 @@
       '<button type="button" data-tab="mine" aria-pressed="false">내 약속에서</button></div>' +
       '<div data-pane="search"><div class="search"><input type="search" id="q" placeholder="가게 이름, 동네, 주소" enterkeyhint="search" autocomplete="off">' +
       '<button type="button" class="btn" data-act="search">검색</button></div>' +
-      '<div class="sortrow"><span class="noaddr-slot" data-noaddr hidden>지도에 표시할 주소가 없어요 <button type="button" class="linkish" data-act="addaddr">주소 추가</button></span>' +
+      '<div class="sortrow"><span class="noaddr-slot"><span data-noaddr hidden>주소를 못 찾았어요 · </span><button type="button" class="linkish" data-act="addaddr">📍 지도에서 직접 찾기</button></span>' +
       '<button type="button" class="sortchip" data-near aria-pressed="' + nearFirst + '">📍 가까운 순</button></div>' +
       '<div class="pick" data-list="search"><div class="hint">검색한 장소를 고르거나, 이름만 적고 추가해도 돼요.</div></div>' +
       '<div class="addpicker" data-addpicker hidden>' + pickerHtml(color) + '</div></div>' +
@@ -1472,6 +1472,7 @@
           var p = searchResults[Number(r.getAttribute('data-res'))];
           choice = { title: p.place_name, place: p.road_address_name || p.address_name || '', lat: Number(p.y), lng: Number(p.x), link: p.place_url || '' };
           mark(r);
+          if (pickerOn) addPicker.moveTo(choice.lat, choice.lng, 3, p.place_name); // 지도가 열려 있으면 그 자리로
           return;
         }
         var a = e.target.closest('[data-act]');
@@ -1484,16 +1485,24 @@
           var pk = bs.querySelector('[data-addpicker]');
           pickerOn = pk.hidden;
           pk.hidden = !pickerOn;
-          a.textContent = pickerOn ? '접기' : '주소 추가';
-          if (pickerOn) { addPicker.start(null); setTimeout(function () { pk.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 120); }
+          a.textContent = pickerOn ? '지도 접기' : '📍 지도에서 직접 찾기';
+          if (pickerOn) {
+            // 고른 검색 결과가 있으면 거기서 시작해서 핀만 살짝 옮길 수 있게
+            addPicker.start(choice && choice.lat != null ? { lat: choice.lat, lng: choice.lng } : null);
+            if (choice && choice.lat != null) setTimeout(function () { addPicker.moveTo(choice.lat, choice.lng, 3, choice.title); }, 120);
+            setTimeout(function () { pk.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 120);
+          }
         }
         else if (act === 'save') {
-          if (!choice && tab === 'search') {
-            var typed = bs.querySelector('#q').value.trim();
-            if (typed) {
-              var g = pickerOn ? addPicker.get() : null;
-              choice = g ? { title: typed, place: g.name ? g.name + ' · ' + g.addr : g.addr, lat: g.lat, lng: g.lng } : { title: typed, place: '' };
-            }
+          var typed = bs.querySelector('#q').value.trim();
+          var g = pickerOn && tab === 'search' ? addPicker.get() : null;
+          if (g) {
+            // 지도에서 고른 위치가 우선. 이름은 고른 검색 결과, 없으면 적은 글자
+            var nm = choice ? choice.title : typed;
+            if (!nm) { toast('이름을 적어주세요'); bs.querySelector('#q').focus(); return; }
+            choice = { title: nm, place: g.name && g.name !== nm ? g.name + ' · ' + g.addr : g.addr, lat: g.lat, lng: g.lng, link: choice ? choice.link : '' };
+          } else if (!choice && tab === 'search' && typed) {
+            choice = { title: typed, place: '' };
           }
           if (!choice) { toast('갈 곳을 하나 골라주세요'); return; }
           ensureTrip();
