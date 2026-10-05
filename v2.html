@@ -116,10 +116,10 @@
   .ptitles {
     position: relative;
     height: 30px;
-    margin: 0 2px 8px;
+    margin: 0 calc(-1 * max(16px, env(safe-area-inset-right))) 8px calc(-1 * max(16px, env(safe-area-inset-left)));
     overflow: hidden;
-    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 27%, #000 73%, transparent 100%);
-    mask-image: linear-gradient(to right, transparent 0%, #000 27%, #000 73%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 9%, #000 91%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0%, #000 9%, #000 91%, transparent 100%);
   }
   .pt {
     position: absolute;
@@ -441,27 +441,33 @@
   window.addEventListener('resize', function () { deck.scrollLeft = current * deck.clientWidth; measurePills(); onScroll(); });
 
   // 알약들을 한 줄로 이어 붙이고, 넘긴 만큼 줄 전체가 미끄러지게
-  var pillX = [];
+  var pillW = [], PILL_GAP = 6;
   function measurePills() {
-    var els = ptitles.querySelectorAll('.pt'), x = 0, prevW = 0;
-    pillX = [];
-    els.forEach(function (el, i) {
-      var w = el.offsetWidth;
-      if (i > 0) x += prevW / 2 + 22 + w / 2;
-      pillX.push(x);
-      prevW = w;
-    });
+    pillW = [];
+    ptitles.querySelectorAll('.pt').forEach(function (el) { pillW.push(el.offsetWidth); });
+  }
+  // 가운데에서 멀수록 옅고 작게: 바로 옆은 또렷한 편, 두 칸 옆은 희미하게
+  function pillLook(d) {
+    d = Math.abs(d);
+    var scale = d >= 2 ? 0.7 : d >= 1 ? 0.86 - (d - 1) * 0.16 : 1 - d * 0.14;
+    var op = d >= 2 ? Math.max(0, 0.32 - (d - 2) * 0.6) : d >= 1 ? 0.6 - (d - 1) * 0.28 : 1 - d * 0.4;
+    return { scale: scale, op: op };
   }
   function layoutPills(pos) {
-    if (pillX.length !== PAGES.length) measurePills();
+    if (pillW.length !== PAGES.length || !pillW[0]) measurePills();
+    var looks = pillW.map(function (w, i) { return pillLook(i - pos); });
+    // 줄어든 크기 기준으로 이어 붙여서 간격이 늘 일정하게
+    var x = [], acc = 0;
+    pillW.forEach(function (w, i) {
+      if (i > 0) acc += pillW[i - 1] * looks[i - 1].scale / 2 + PILL_GAP + w * looks[i].scale / 2;
+      x.push(acc);
+    });
     var lo = Math.max(0, Math.min(PAGES.length - 1, Math.floor(pos)));
     var hi = Math.min(PAGES.length - 1, lo + 1);
-    var center = pillX[lo] + (pillX[hi] - pillX[lo]) * Math.max(0, Math.min(1, pos - lo));
+    var center = x[lo] + (x[hi] - x[lo]) * Math.max(0, Math.min(1, pos - lo));
     ptitles.querySelectorAll('.pt').forEach(function (el, i) {
-      var d = Math.abs(i - pos);
-      var near = Math.max(0, 1 - Math.min(d, 1));
-      el.style.transform = 'translateX(calc(-50% + ' + (pillX[i] - center).toFixed(1) + 'px)) scale(' + (0.9 + near * 0.1).toFixed(3) + ')';
-      el.style.opacity = d > 1.6 ? 0 : (0.45 + near * 0.55).toFixed(3);
+      el.style.transform = 'translateX(calc(-50% + ' + (x[i] - center).toFixed(1) + 'px)) scale(' + looks[i].scale.toFixed(3) + ')';
+      el.style.opacity = looks[i].op.toFixed(3);
     });
   }
 
