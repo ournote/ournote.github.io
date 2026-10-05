@@ -391,6 +391,77 @@
   }
   .confirm span { flex: 1; color: var(--rose); font-weight: 500; font-size: 14px; }
   .confirm .btn { padding: 7px 13px; font-size: 14px; }
+
+  .addbar { gap: 8px; }
+  .addbtn.sub { color: var(--plum); padding: 0 18px; }
+
+  /* ---------- 붙여넣기 미리보기 ---------- */
+  .pv { display: flex; flex-direction: column; gap: 10px; }
+  .pi {
+    display: flex;
+    gap: 12px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 12px 12px 12px 10px;
+    background: var(--bg);
+    transition: opacity .25s ease;
+  }
+  .pi.off { opacity: .45; }
+  .pi .ck { margin-top: 0; }
+  .pi.on .ck { background: var(--rose); border-color: var(--rose); }
+  .pi.on .ck svg { opacity: 1; }
+  .pi .tx { flex: 1; min-width: 0; }
+  .pi .tt { font-size: 15px; }
+  .pcats { display: flex; flex-wrap: nowrap; gap: 4px; margin: 7px 0 4px; overflow-x: auto; scrollbar-width: none; }
+  .pcats::-webkit-scrollbar { display: none; }
+  .pcat { flex: 0 0 auto; }
+  .pcat {
+    border: 1px solid var(--line);
+    background: var(--paper);
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 1px 7px;
+    font: inherit;
+    font-size: 11.5px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .pcat[aria-pressed="true"] { border-color: var(--rose); background: var(--rose-soft); color: var(--rose); font-weight: 600; }
+  .pm { font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .dup { display: inline-block; margin-left: 6px; font-size: 11px; color: var(--rose); border: 1px solid var(--rose-soft); border-radius: 6px; padding: 0 5px; vertical-align: 2px; font-family: var(--sans); font-weight: 500; }
+  .note { margin: -6px 0 14px; font-size: 13px; color: var(--muted); line-height: 1.6; word-break: keep-all; }
+  .linkbtn {
+    display: block;
+    margin: 14px auto 0;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-size: 12.5px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+  .fld textarea.big { min-height: 180px; font-size: 14px; }
+
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(28px + env(safe-area-inset-bottom));
+    transform: translate(-50%, 10px);
+    background: var(--plum);
+    color: var(--bg);
+    padding: 9px 16px;
+    border-radius: 999px;
+    font-size: 13.5px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s, transform .25s;
+    z-index: 40;
+    max-width: calc(100% - 32px);
+    text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
 </style>
 </head>
 <body>
@@ -410,9 +481,14 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
         등록하기
       </button>
+      <button class="addbtn sub" id="pasteBtn" type="button" aria-label="붙여넣기로 등록">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2.5"/><path d="M9.5 4.5V3.8c0-.7.6-1.3 1.3-1.3h2.4c.7 0 1.3.6 1.3 1.3v.7M9.5 11h5M9.5 15h5"/></svg>
+        붙여넣기
+      </button>
     </div>
   </main>
 </div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
 (function () {
@@ -689,6 +765,277 @@
     });
   }
   document.getElementById('addBtn').addEventListener('click', function () { openEditor(null); });
+
+
+  // ---------- 알림 ----------
+  var toastTimer = null;
+  function toast(msg) {
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2400);
+  }
+
+  // ---------- 클로드 안내문 ----------
+  var CLAUDE_GUIDE = [
+    '앞으로 내가 링크·스크린샷·글을 주면서 "약속노트"라고 하면, 내 "우리 약속 노트" 앱에 붙여넣을 수 있게 아래 형식으로만 정리해줘.',
+    '- 약속 하나마다 아래 블록 하나, 여러 개면 --- 줄로 구분',
+    '- 모르는 칸은 줄째로 빼기, 지어내지 않기',
+    '- 카테고리는 맛집 / 선물 / 서프라이즈 / 데이트 중 하나',
+    '- 제목은 "무엇을 할지" 짧게 (예: 로즈드메 휘낭시에 같이 먹기, 키티케이스 만들어주기)',
+    '- 메모에는 영업시간·휴무·가격·주문 방법 같은 걸 한 줄로',
+    '- 내가 "모아줘"라고 하면 이 대화에서 정리한 약속 전부를 코드 블록 하나에 모아서 보여줘',
+    '',
+    '[약속노트]',
+    '제목: ',
+    '카테고리: ',
+    '주소: ',
+    '링크: ',
+    '메모: ',
+    '시기: ',
+    '---'
+  ].join('\n');
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).then(function () { return true; }, function () { return legacyCopy(text); });
+    }
+    return Promise.resolve(legacyCopy(text));
+  }
+  function legacyCopy(text) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, text.length);
+      var ok = document.execCommand('copy');
+      ta.remove();
+      return ok;
+    } catch (e) {
+      return false;
+    }
+  }
+  function copyGuide() {
+    copyText(CLAUDE_GUIDE).then(function (ok) {
+      toast(ok ? '클로드 안내문을 복사했어요. 클로드 대화에 붙여넣어 주세요' : '복사하지 못했어요');
+    });
+  }
+
+  // ---------- 붙여넣은 글 정리 ----------
+  var KEYS = [
+    { f: 'title', re: /^(제목|이름|무엇을|할 ?일|약속|title|name)$/i },
+    { f: 'cat', re: /^(카테고리|분류|종류|category)$/i },
+    { f: 'place', re: /^(주소|위치|장소|place|address)$/i },
+    { f: 'link', re: /^(링크|url|link|사이트|인스타|인스타그램)$/i },
+    { f: 'memo', re: /^(메모|설명|내용|영업 ?시간|정보|참고|memo|note)$/i },
+    { f: 'when', re: /^(시기|목표 ?시기|언제|날짜|when)$/i }
+  ];
+  var CAT_WORDS = {
+    food: ['맛집', '디저트', '카페', '커피', '음식', '식당', '레스토랑', '베이커리', '빵', '케이크', '휘낭시에', '마들렌', '초콜릿', '마카롱', '쿠키', '먹', '맛있', '브런치', '술집', '바 ', '오마카세', '파스타', '고기'],
+    gift: ['선물', '만들어', '만들기', '케이스', '키링', '편지', '반지', '목걸이', '팔찌', '향수', '공방', '굿즈', '포토', '앨범', '사줘', '사주기'],
+    surprise: ['서프라이즈', '깜짝', '꽃', '이벤트', '프로포즈', '기념일', '생일', '100일', '편지'],
+    date: ['데이트', '여행', '드라이브', '캠핑', '피크닉', '전시', '공연', '영화', '산책', '바다', '호텔', '숙소', '펜션', '놀이공원', '축제', '야경', '등산', '해변', '글램핑', '팝업']
+  };
+  function catFromValue(v) {
+    v = String(v || '').toLowerCase();
+    if (/맛집|디저트|카페|음식|food/.test(v)) return 'food';
+    if (/선물|만들|gift/.test(v)) return 'gift';
+    if (/서프라이즈|이벤트|surprise/.test(v)) return 'surprise';
+    if (/데이트|여행|date|trip/.test(v)) return 'date';
+    return '';
+  }
+  function guessCat(it) {
+    var text = (it.title + ' ' + it.memo).toLowerCase();
+    var best = '', score = 0;
+    Object.keys(CAT_WORDS).forEach(function (k) {
+      var sc = 0;
+      CAT_WORDS[k].forEach(function (w) { if (text.indexOf(w) >= 0) sc += (it.title.indexOf(w) >= 0 ? 2 : 1); });
+      if (sc > score) { score = sc; best = k; }
+    });
+    return best || (it.place ? 'food' : 'date');
+  }
+  var ADDR_RE = /(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주|[가-힣]+(시|군|구))[^\n]*?[가-힣0-9]+(로|길|동|읍|면|리)\s*\d+(-\d+)?/;
+
+  function parseBlock(text) {
+    var it = { title: '', cat: '', place: '', link: '', memo: '', when: '' };
+    var memo = [], loose = [], lastField = null;
+    text.split('\n').forEach(function (raw) {
+      var line = raw.replace(/\*\*|__/g, '').replace(/^\s*[-*•·]\s*/, '').trim();
+      if (!line || /^\[?약속\s?노트\]?$/.test(line.replace(/\s/g, '')) || /^\[약속노트\]$/.test(line)) return;
+      var m = line.match(/^([^:：]{1,12})\s*[:：]\s*(.*)$/);
+      var key = m && KEYS.find(function (k) { return k.re.test(m[1].trim()); });
+      if (key && !/^https?$/i.test(m[1].trim())) {
+        var v = m[2].trim();
+        lastField = key.f;
+        if (!v) return;
+        if (key.f === 'memo') memo.push(v);
+        else if (key.f === 'cat') it.cat = catFromValue(v);
+        else if (!it[key.f]) it[key.f] = v;
+        else memo.push(v);
+        return;
+      }
+      if (lastField === 'memo') { memo.push(line); return; }
+      loose.push(line);
+    });
+    // 형식 없이 붙여넣은 줄들: 링크·주소·제목을 알아서 골라냄
+    loose.forEach(function (line) {
+      var urls = line.match(/https?:\/\/[^\s)>\]]+/g);
+      if (urls) {
+        urls.forEach(function (u) { if (!it.link) it.link = u; else memo.push(u); });
+        line = line.replace(/https?:\/\/[^\s)>\]]+/g, '').trim();
+        if (!line) return;
+      }
+      if (!it.place && ADDR_RE.test(line)) { it.place = line.replace(/^(📍|주소)\s*/, '').trim(); return; }
+      if (!it.title) { it.title = line.replace(/^[#>\s]+/, '').slice(0, 80); return; }
+      memo.push(line);
+    });
+    it.memo = memo.join(' · ');
+    if (!it.cat) it.cat = guessCat(it);
+    return it.title.replace(/\s/g, '').length >= 2 ? it : null;
+  }
+
+  function parsePaste(text) {
+    text = String(text || '').replace(/\r\n?/g, '\n').replace(/```[a-z]*\n?/gi, '').trim();
+    if (!text) return [];
+    var blocks;
+    if (/^\s*(-{3,}|—{2,}|={3,})\s*$/m.test(text)) blocks = text.split(/^\s*(?:-{3,}|—{2,}|={3,})\s*$/m);
+    else if ((text.match(/^\s*\[약속\s?노트\]/gm) || []).length > 1) blocks = text.split(/^\s*(?=\[약속\s?노트\])/m);
+    else if ((text.match(/^\s*(제목|이름)\s*[:：]/gm) || []).length > 1) blocks = text.split(/^\s*(?=(?:제목|이름)\s*[:：])/m);
+    else blocks = [text];
+    return blocks.map(function (b) { return b.trim(); }).filter(Boolean).map(parseBlock).filter(Boolean);
+  }
+
+  function normTitle(t) { return String(t || '').replace(/\s+/g, '').toLowerCase(); }
+
+  // ---------- 붙여넣기 흐름 ----------
+  function startPaste() {
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      navigator.clipboard.readText().then(function (text) {
+        var items = parsePaste(text);
+        if (items.length) openPreview(items);
+        else openPasteBox(text);
+      }, function () { openPasteBox(''); });
+    } else {
+      openPasteBox('');
+    }
+  }
+
+  function openPasteBox(prefill) {
+    var html = '<h2>붙여넣기로 등록</h2>' +
+      '<p class="note">클로드가 정리해준 글을 아래에 붙여넣어 주세요. 여러 개도 한 번에 돼요.</p>' +
+      '<div class="fld"><textarea id="p-text" class="big" placeholder="[약속노트]&#10;제목: …&#10;카테고리: …&#10;주소: …"></textarea></div>' +
+      '<div class="acts"><button type="button" class="btn" data-act="close">닫기</button>' +
+      '<button type="button" class="btn pri" data-act="go">정리하기</button></div>' +
+      '<button type="button" class="linkbtn" data-act="guide">클로드 안내문 복사</button>';
+    openSheet(html, function (bs) {
+      var ta = bs.querySelector('#p-text');
+      if (prefill) ta.value = prefill;
+      bs.addEventListener('click', function (e) {
+        var a = e.target.closest('[data-act]');
+        if (!a) return;
+        var act = a.getAttribute('data-act');
+        if (act === 'close') closeSheet();
+        else if (act === 'guide') copyGuide();
+        else if (act === 'go') {
+          var items = parsePaste(ta.value);
+          if (!items.length) { toast('정리할 약속을 찾지 못했어요'); return; }
+          closeSheet();
+          setTimeout(function () { openPreview(items); }, 120);
+        }
+      });
+    });
+  }
+
+  function openPreview(items) {
+    var existing = {};
+    loadRaw().forEach(function (x) { if (x && x.title) existing[normTitle(x.title)] = true; });
+    var seen = {};
+    items.forEach(function (it) {
+      var k = normTitle(it.title);
+      it.dup = !!existing[k] || !!seen[k];
+      it.on = !it.dup;
+      seen[k] = true;
+    });
+
+    function cardHtml(it, i) {
+      var meta = [];
+      if (it.place) meta.push('📍 ' + it.place);
+      if (it.link) meta.push('🔗 ' + it.link.replace(/^https?:\/\//i, ''));
+      if (it.when) meta.push('⏳ ' + it.when);
+      if (it.memo) meta.push('📝 ' + it.memo);
+      return '<div class="pi' + (it.on ? ' on' : ' off') + '" data-i="' + i + '">' +
+        '<button class="ck" type="button" data-act="toggle" aria-label="넣기/빼기">' + CHECK + '</button>' +
+        '<div class="tx"><div class="tt">' + esc(it.title) + (it.dup ? '<span class="dup">이미 있음</span>' : '') + '</div>' +
+        '<div class="pcats">' + Object.keys(CAT).map(function (k) {
+          return '<button type="button" class="pcat" data-cat="' + k + '" aria-pressed="' + (k === it.cat) + '">' + CAT[k].emoji + ' ' + esc(PAGES.find(function (p) { return p.id === k; }).name.replace(/^\S+\s/, '')) + '</button>';
+        }).join('') + '</div>' +
+        (meta.length ? '<div class="pm">' + esc(meta.join('  ')) + '</div>' : '') +
+        '</div></div>';
+    }
+    function countOn() { return items.filter(function (it) { return it.on; }).length; }
+
+    var html = '<h2>붙여넣은 약속 ' + items.length + '개</h2>' +
+      '<p class="note">카테고리가 다르면 눌러서 바꾸고, 뺄 건 체크를 풀어주세요.</p>' +
+      '<div class="pv">' + items.map(cardHtml).join('') + '</div>' +
+      '<div class="acts"><button type="button" class="btn" data-act="close">닫기</button>' +
+      '<button type="button" class="btn pri" data-act="save"></button></div>' +
+      '<button type="button" class="linkbtn" data-act="guide">클로드 안내문 복사</button>';
+
+    openSheet(html, function (bs) {
+      var saveBtn = bs.querySelector('[data-act="save"]');
+      function refreshSave() {
+        var n = countOn();
+        saveBtn.textContent = n ? n + '개 등록' : '등록할 약속 없음';
+        saveBtn.disabled = !n;
+        saveBtn.style.opacity = n ? '' : '.5';
+      }
+      refreshSave();
+      bs.addEventListener('click', function (e) {
+        var card = e.target.closest('.pi');
+        var a = e.target.closest('[data-act]');
+        var c = e.target.closest('[data-cat]');
+        if (card && c) {
+          var it = items[Number(card.getAttribute('data-i'))];
+          it.cat = c.getAttribute('data-cat');
+          card.querySelectorAll('[data-cat]').forEach(function (b) { b.setAttribute('aria-pressed', String(b === c)); });
+          return;
+        }
+        if (card && a && a.getAttribute('data-act') === 'toggle') {
+          var t = items[Number(card.getAttribute('data-i'))];
+          t.on = !t.on;
+          card.classList.toggle('on', t.on);
+          card.classList.toggle('off', !t.on);
+          refreshSave();
+          return;
+        }
+        if (!a) return;
+        if (a.getAttribute('data-act') === 'close') closeSheet();
+        else if (a.getAttribute('data-act') === 'guide') copyGuide();
+        else if (a.getAttribute('data-act') === 'save') {
+          var pick = items.filter(function (x) { return x.on; });
+          if (!pick.length) return;
+          var list = loadRaw();
+          var base = Math.max(Date.now(), list.reduce(function (m, x) { return Math.max(m, Number(x && x.createdAt) || 0); }, 0) + 1);
+          pick.forEach(function (x, i) {
+            list.push({
+              id: uid(), title: x.title, cat: x.cat, place: x.place, link: x.link, memo: x.memo, when: x.when,
+              done: false, doneAt: '', review: '', createdAt: base + i
+            });
+          });
+          saveRaw(list);
+          renderAll(false);
+          closeSheet();
+          toast(pick.length + '개 등록했어요');
+        }
+      });
+    });
+  }
+
+  document.getElementById('pasteBtn').addEventListener('click', startPaste);
 
   // ---------- 세부내용 ----------
   function openDetail(id) {
