@@ -621,8 +621,9 @@
     transition: background .2s ease, color .2s ease, border-color .2s ease;
   }
   .sidebtn svg { width: 15px; height: 15px; }
-  #doneBtn[aria-pressed="true"] { border-color: #3f7a5a; background: #3f7a5a; color: #fff; }
-  @media (prefers-color-scheme: dark) { #doneBtn[aria-pressed="true"] { border-color: #7cc59a; background: #7cc59a; color: #1c171d; } }
+  /* 확정됨: 쨍하지 않게 연한 초록 바탕 + 초록 체크 */
+  #doneBtn[aria-pressed="true"] { border-color: #cfe5d7; background: #e3f1e8; color: #3f7a5a; }
+  @media (prefers-color-scheme: dark) { #doneBtn[aria-pressed="true"] { border-color: #2c4537; background: #203229; color: #7cc59a; } }
 
   /* 확정 후 지나간 일정: 체크한 것처럼, 각자 색을 흐리게 */
   .stop.past { opacity: .62; }
