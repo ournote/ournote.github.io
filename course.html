@@ -457,6 +457,9 @@
   .stop .noaddr { color: var(--rose); opacity: .8; }
   .linkish { border: 0; background: none; color: var(--rose); font-size: 13px; font-weight: 600; padding: 0 2px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
   .addrbox { margin-bottom: 4px; }
+  .dateline { font-size: 13.5px; color: var(--ink); margin: 0 0 6px; }
+  .movebox { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 2px 0 6px; }
+  .movebox input[type="date"] { font: inherit; font-size: 13px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; }
   .pick.small { max-height: 22vh; margin-bottom: 8px; }
   .pick.small:empty { display: none; }
   .picker {
@@ -729,6 +732,7 @@
   document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
 
   var KAKAO_JS_KEY = 'fdb9bb9ef9a347bf4b1c4a08e9f00fcf';
+  var STORE_KEY = 'ournote:course2';
   var TRIPS_KEY = 'ournote:courses';
   var OLD_KEY = 'ournote:course';
   var ITEMS_KEY = 'ournote:items';
@@ -750,26 +754,42 @@
   }
   function uid() { return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8); }
 
-  // 코스는 날짜(여행 기간)마다 따로 저장: { trips: [{ id, start, end, stops: [{…, day}] }], current }
-  var store = readJSON(TRIPS_KEY, null);
-  if (!store || !Array.isArray(store.trips)) {
-    store = { trips: [], current: '' };
-    var old = readJSON(OLD_KEY, null); // 예전 한 개짜리 코스 옮기기
-    if (old && Array.isArray(old.stops) && (old.stops.length || old.date)) {
-      var t0 = { id: uid(), start: old.date || '', end: old.date || '', stops: old.stops.map(function (s) { s.day = 0; return s; }) };
-      store.trips.push(t0);
-      store.current = t0.id;
+  // 일정은 실제 날짜에 붙어 있어요: { stops: [{…, date: 'YYYY-MM-DD' 또는 ''}], ranges: [{start, end}], view: {start, end} }
+  // 날짜 고르기는 '어느 날짜를 볼지'만 바꿔요. 일정은 절대 다른 날로 옮기거나 합치지 않아요.
+  // (예전 'ournote:courses' / 'ournote:course' 데이터는 그대로 두고, 처음 한 번만 옮겨와요)
+  var store = readJSON(STORE_KEY, null);
+  if (!store || !Array.isArray(store.stops)) {
+    store = { stops: [], ranges: [], view: { start: '', end: '' } };
+    var oldT = readJSON(TRIPS_KEY, null);
+    var oldTrips = oldT && Array.isArray(oldT.trips) ? oldT.trips : [];
+    if (!oldTrips.length) {
+      var old = readJSON(OLD_KEY, null); // 예전 한 개짜리 코스
+      if (old && Array.isArray(old.stops) && (old.stops.length || old.date)) oldTrips = [{ id: 'old', start: old.date || '', end: old.date || '', stops: old.stops }];
     }
+    oldTrips.forEach(function (t) {
+      (Array.isArray(t.stops) ? t.stops : []).forEach(function (s) {
+        s.date = t.start ? addDays(t.start, s.day || 0) : '';
+        delete s.day;
+        store.stops.push(s);
+      });
+      if (t.start) store.ranges.push({ start: t.start, end: t.end || t.start });
+    });
+    var curT = oldTrips.find(function (t) { return oldT && t.id === oldT.current; }) || oldTrips[0];
+    if (curT) store.view = { start: curT.start || '', end: curT.end || curT.start || '' };
+    writeJSON(STORE_KEY, store);
   }
-  store.trips.forEach(function (t) {
-    if (!Array.isArray(t.stops)) t.stops = [];
-    if (!t.end) t.end = t.start;
-  });
+  if (!Array.isArray(store.ranges)) store.ranges = [];
+  if (!store.view) store.view = { start: '', end: '' };
   var geo = readJSON(GEO_KEY, {});
   if (!geo || typeof geo !== 'object') geo = {};
-  var trip = null, dayIdx = 0;
+  // trip = 지금 보고 있는 날짜 범위(일정 자체가 아니라 '창'), stops는 전체 일정 배열을 그대로 가리킴
+  var trip = { start: store.view.start || '', end: store.view.end || store.view.start || '', stops: store.stops };
+  var dayIdx = 0;
 
-  function save() { writeJSON(TRIPS_KEY, store); }
+  function save() {
+    store.view = { start: trip.start, end: trip.end };
+    writeJSON(STORE_KEY, store);
+  }
 
   // ---------- 날짜 유틸 ----------
   function pad(n) { return (n < 10 ? '0' : '') + n; }
@@ -785,12 +805,38 @@
     var n = nightsOf(t);
     return n ? md(t.start) + '–' + md(t.end) + ' · ' + nightsLabel(n) : md(t.start) + ' (' + WEEK[parse(t.start).getDay()] + ')';
   }
-  function sortTrips() {
-    store.trips.sort(function (a, b) {
+  function rkey(r) { return (r.start || '') + '|' + (r.end || r.start || ''); }
+  function inRange(d, r) { return r.start ? !!d && d >= r.start && d <= (r.end || r.start) : !d; }
+  function stopsIn(r) { return store.stops.filter(function (s) { return inRange(s.date || '', r); }); }
+  function viewDate(i) { return trip.start ? addDays(trip.start, i) : ''; }
+  function addRange(start, end) {
+    if (!start) return;
+    var r = { start: start, end: end || start };
+    if (!store.ranges.some(function (x) { return rkey(x) === rkey(r); })) store.ranges.push(r);
+  }
+  // 칩 목록: 직접 만든 날짜 범위(일정이 있거나 지금 보는 것) + 어느 범위에도 안 들어간 일정은 이어진 날짜끼리 자동으로 묶음
+  function chipRanges() {
+    var cur = rkey(trip), out = [], seen = {};
+    function push(r) { var k = rkey(r); if (!seen[k]) { seen[k] = true; out.push({ start: r.start, end: r.end || r.start }); } }
+    store.ranges.forEach(function (r) { if (rkey(r) === cur || stopsIn(r).length) push(r); });
+    var loose = {};
+    store.stops.forEach(function (s) {
+      if (s.date && !store.ranges.some(function (r) { return inRange(s.date, r); })) loose[s.date] = true;
+    });
+    var ds = Object.keys(loose).sort(), g = null;
+    ds.forEach(function (d) {
+      if (g && addDays(g.end, 1) === d) g.end = d;
+      else { if (g) push(g); g = { start: d, end: d }; }
+    });
+    if (g) push(g);
+    if (store.stops.some(function (s) { return !s.date; }) || (!trip.start && out.length)) push({ start: '', end: '' });
+    if (trip.start) push(trip);
+    out.sort(function (a, b) {
       if (!a.start) return 1;
       if (!b.start) return -1;
-      return a.start < b.start ? -1 : a.start > b.start ? 1 : 0;
+      return a.start < b.start ? -1 : a.start > b.start ? 1 : a.end < b.end ? -1 : 1;
     });
+    return out;
   }
 
   // ---------- 기타 유틸 ----------
@@ -821,7 +867,8 @@
     toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2200);
   }
 
-  function dayStops() { return trip ? trip.stops.filter(function (s) { return (s.day || 0) === dayIdx; }) : []; }
+  function dayStops() { var d = viewDate(dayIdx); return store.stops.filter(function (s) { return (s.date || '') === d; }); }
+  function removeStop(st) { var i = store.stops.indexOf(st); if (i >= 0) store.stops.splice(i, 1); }
   function nextColor() {
     var used = {};
     dayStops().forEach(function (s) { used[s.color] = (used[s.color] || 0) + 1; });
@@ -837,36 +884,32 @@
   }
 
   // ---------- 1. 일시 ----------
-  function selectTrip(id) {
-    trip = store.trips.find(function (t) { return t.id === id; }) || null;
-    store.current = trip ? trip.id : '';
+  function selectTrip(key) {
+    var p = String(key).split('|');
+    trip.start = p[0] || '';
+    trip.end = p[1] || trip.start;
     dayIdx = 0;
     save();
     renderAll(true);
   }
-  function ensureTrip() {
-    if (trip) return trip;
-    trip = { id: uid(), start: '', end: '', stops: [] };
-    store.trips.push(trip);
-    store.current = trip.id;
-    save();
-    return trip;
-  }
+  function ensureTrip() { addRange(trip.start, trip.end); }
 
   function renderTrips() {
-    sortTrips();
     var el = document.getElementById('trips');
-    if (!store.trips.length) { el.hidden = true; return; }
+    var list = chipRanges();
+    if (!list.length) { el.hidden = true; return; }
     el.hidden = false;
-    el.innerHTML = store.trips.map(function (t) {
-      return '<button type="button" class="trip" data-trip="' + esc(t.id) + '" aria-pressed="' + (trip === t) + '">' + esc(tripLabel(t)) +
-        (t.stops.length ? ' · ' + t.stops.length + '곳' : '') + '</button>';
+    var cur = rkey(trip);
+    el.innerHTML = list.map(function (r) {
+      var n = stopsIn(r).length;
+      return '<button type="button" class="trip" data-trip="' + esc(rkey(r)) + '" aria-pressed="' + (rkey(r) === cur) + '">' + esc(tripLabel(r)) +
+        (n ? ' · ' + n + '곳' : '') + '</button>';
     }).join('') + '<button type="button" class="trip new" data-new>+ 새 코스</button>';
-    var cur = el.querySelector('[aria-pressed="true"]');
-    if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    var on = el.querySelector('[aria-pressed="true"]');
+    if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
   function renderWhen() {
-    var t = trip || { start: '', end: '' };
+    var t = trip;
     var txt = document.getElementById('whenText');
     var nn = document.getElementById('whenNights');
     if (!t.start) {
@@ -882,13 +925,13 @@
       nn.hidden = false;
     }
     var days = document.getElementById('days');
-    var n2 = trip ? nightsOf(trip) : 0;
+    var n2 = nightsOf(trip);
     if (!n2) { days.hidden = true; days.innerHTML = ''; return; }
     days.hidden = false;
     var html = '';
     for (var i = 0; i <= n2; i++) {
       var dstr = addDays(trip.start, i);
-      var cnt = trip.stops.filter(function (s) { return (s.day || 0) === i; }).length;
+      var cnt = store.stops.filter(function (s) { return s.date === dstr; }).length;
       html += '<button type="button" class="day" data-day="' + i + '" aria-pressed="' + (i === dayIdx) + '"><b>' + (i + 1) + '일차</b>' + md(dstr) + (cnt ? ' · ' + cnt : '') + '</button>';
     }
     days.innerHTML = html;
@@ -911,17 +954,14 @@
 
   // 달력: 첫 번째 탭 = 시작일, 두 번째 탭 = 마지막 날(연박)
   function openCalendar(isNew) {
-    var base = !isNew && trip ? trip : { start: '', end: '' };
+    var base = !isNew ? trip : { start: '', end: '' };
     var sel = { start: base.start || '', end: base.end || base.start || '' };
     var picking = sel.start && sel.end && sel.start !== sel.end ? 'start' : (sel.start ? 'end' : 'start');
     var shown = sel.start ? parse(sel.start) : new Date();
     shown = new Date(shown.getFullYear(), shown.getMonth(), 1);
     var today = ymd(new Date());
     var tripDays = {};
-    store.trips.forEach(function (t) {
-      if (!t.start) return;
-      for (var i = 0; i <= nightsOf(t); i++) tripDays[addDays(t.start, i)] = true;
-    });
+    store.stops.forEach(function (s) { if (s.date) tripDays[s.date] = true; }); // 일정이 있는 날에 밑줄
 
     var html = '<h2>' + (isNew ? '새 코스 날짜' : '날짜 고르기') + '</h2>' +
       '<div class="cal-head"><button type="button" data-mv="-1" aria-label="이전 달">‹</button><b data-title></b><button type="button" data-mv="1" aria-label="다음 달">›</button></div>' +
@@ -988,42 +1028,31 @@
     });
   }
 
+  // 날짜를 바꾸는 건 '어느 날을 볼지'만 바꾸는 것. 일정은 원래 날짜에 그대로 남아요
   function applyDates(start, end, isNew) {
-    // 같은 날짜(기간)의 코스가 이미 있으면 그걸 연다
-    var same = store.trips.find(function (t) { return t.start === start && t.end === end && t !== (isNew ? null : trip); });
-    if (same && (isNew || !trip || !trip.stops.length)) {
-      if (!isNew && trip && !trip.stops.length) store.trips = store.trips.filter(function (t) { return t !== trip; });
-      closeSheet();
-      selectTrip(same.id);
-      toast('이미 있는 코스를 열었어요');
-      return;
-    }
-    if (isNew || !trip) {
-      trip = { id: uid(), start: start, end: end, stops: [] };
-      store.trips.push(trip);
-    } else {
-      trip.start = start;
-      trip.end = end;
-      var last = nightsOf(trip);
-      trip.stops.forEach(function (s) { if ((s.day || 0) > last) s.day = last; }); // 줄어든 날의 장소는 마지막 날로
-    }
-    store.current = trip.id;
-    dayIdx = Math.min(dayIdx, nightsOf(trip));
-    if (isNew) dayIdx = 0;
+    var before = stopsIn(trip).length;
+    if (!isNew) store.ranges = store.ranges.filter(function (r) { return rkey(r) !== rkey(trip); });
+    trip.start = start;
+    trip.end = end || start;
+    addRange(trip.start, trip.end);
+    dayIdx = isNew ? 0 : Math.min(dayIdx, nightsOf(trip));
     save();
     closeSheet();
     renderAll(true);
+    if (!isNew && before && !stopsIn(trip).length) toast('일정은 원래 날짜에 그대로 있어요');
   }
 
-  // 코스 지우기
+  // 코스 지우기: 지금 보고 있는 날짜의 일정만 지움
   var delConfirm = document.getElementById('delConfirm');
   document.getElementById('delTrip').addEventListener('click', function () { delConfirm.hidden = false; delConfirm.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); });
   document.getElementById('delNo').addEventListener('click', function () { delConfirm.hidden = true; });
   document.getElementById('delYes').addEventListener('click', function () {
-    if (trip) store.trips = store.trips.filter(function (t) { return t !== trip; });
+    stopsIn(trip).forEach(removeStop);
+    var k = rkey(trip);
+    store.ranges = store.ranges.filter(function (r) { return rkey(r) !== k; });
     delConfirm.hidden = true;
-    sortTrips();
-    selectTrip(store.trips[0] ? store.trips[0].id : '');
+    var next = chipRanges().filter(function (r) { return rkey(r) !== k; })[0];
+    selectTrip(next ? rkey(next) : '|');
     toast('코스를 지웠어요');
   });
 
@@ -1163,8 +1192,8 @@
   // 날짜 있는 코스만: 지난 날짜는 전부, 오늘은 끝난 일정(진행 중 제외), 앞으로 할 날은 그대로
   function todayYmd() { return ymd(new Date()); }
   function isPast(st) {
-    if (!trip || !trip.start) return false;
-    var d = addDays(trip.start, st.day || 0);
+    var d = st.date || '';
+    if (!d) return false;
     var today = todayYmd();
     if (d < today) return true;
     if (d > today || !hasTime(st)) return false;
@@ -1176,7 +1205,7 @@
   function syncPastTimer() {
     clearInterval(pastTimer);
     // 오늘이 이 코스 기간 안이면 1분마다 다시 확인
-    if (trip && trip.start) {
+    if (trip.start) {
       var t = todayYmd();
       if (t >= trip.start && t <= (trip.end || trip.start)) pastTimer = setInterval(function () { renderStops(); drawMap(false); }, 60000);
     }
@@ -1186,9 +1215,9 @@
   function renderStops() {
     var list = ordered();
     var el = document.getElementById('stops');
-    document.getElementById('delTrip').hidden = !trip;
+    document.getElementById('delTrip').hidden = !stopsIn(trip).length;
     if (!list.length) {
-      el.innerHTML = '<div class="empty">' + (trip && nightsOf(trip) ? (dayIdx + 1) + '일차 코스가 비어 있어요.' : '아직 코스가 비어 있어요.') + ' 아래 ‘추가하기’로 갈 곳을 넣어보세요.</div>';
+      el.innerHTML = '<div class="empty">' + (nightsOf(trip) ? (dayIdx + 1) + '일차 코스가 비어 있어요.' : '아직 코스가 비어 있어요.') + ' 아래 ‘추가하기’로 갈 곳을 넣어보세요.</div>';
       return;
     }
     var html = '';
@@ -1270,7 +1299,7 @@
     document.getElementById('mapMsg').hidden = true;
     kakaoReady = true;
     var pending = [];
-    store.trips.forEach(function (t) { t.stops.forEach(function (s) { if (s.lat == null && s.place) pending.push(s); }); });
+    store.stops.forEach(function (s) { if (s.lat == null && s.place) pending.push(s); });
     var left = pending.length;
     if (!left) { drawMap(true); return; }
     pending.forEach(function (st) {
@@ -1794,7 +1823,7 @@
     var choice = null;
     var time = { start: null, end: null };
     var tab = 'search';
-    var dayNote = trip && nightsOf(trip) ? ' · ' + (dayIdx + 1) + '일차' : '';
+    var dayNote = nightsOf(trip) ? ' · ' + (dayIdx + 1) + '일차' : '';
     var html = '<h2>코스에 추가' + dayNote + '</h2>' +
       '<div class="seg"><button type="button" data-tab="search" aria-pressed="true">장소 검색</button>' +
       '<button type="button" data-tab="mine" aria-pressed="false">내 약속에서</button></div>' +
@@ -1923,11 +1952,11 @@
           ensureTrip();
           var st = {
             id: uid(), title: choice.title, place: choice.place || '', link: choice.link || '',
-            itemId: choice.itemId || '', color: color, day: dayIdx,
+            itemId: choice.itemId || '', color: color, date: viewDate(dayIdx),
             lat: choice.lat != null ? choice.lat : null, lng: choice.lng != null ? choice.lng : null
           };
           if (time.start != null && time.end != null && time.start !== time.end) { st.start = time.start; st.end = time.end; }
-          trip.stops.push(st);
+          store.stops.push(st);
           save();
           closeSheet();
           if (st.lat == null && st.place) {
@@ -2060,6 +2089,8 @@
         '<div class="pick small" data-alist></div>' +
         pickerHtml(st.color) +
       '</div>' +
+      '<div class="dateline">📅 <span data-dlabel></span> <button type="button" class="linkish" data-act="movedate">다른 날로 옮기기</button></div>' +
+      '<div class="movebox" data-movebox hidden></div>' +
       clockBlock() +
       '<div class="acts"><button type="button" class="btn del" data-act="del">빼기</button><span class="sp"></span>' +
       '<button type="button" class="btn" data-act="close">닫기</button>' +
@@ -2068,6 +2099,24 @@
     openSheet(html, function (bs) {
       var clock = makeClock(bs.querySelector('[data-clock]'), st.color, others, st, function (v) { time = v; });
       var results = [];
+      // 날짜 옮기기: 저장을 눌러야 옮겨짐
+      var newDate = st.date || '';
+      var moveBox = bs.querySelector('[data-movebox]');
+      function dateText(d) { return d ? mdw(d) : '날짜 없음'; }
+      function paintMove() {
+        bs.querySelector('[data-dlabel]').textContent = dateText(newDate) + (newDate !== (st.date || '') ? (newDate ? '로' : '으로') + ' 옮길게요' : '');
+        var opts = [];
+        for (var i = 0; trip.start && i <= nightsOf(trip); i++) opts.push(addDays(trip.start, i));
+        moveBox.innerHTML = opts.map(function (d) {
+          return '<button type="button" class="sortchip" data-mv-to="' + d + '" aria-pressed="' + (d === newDate) + '">' + md(d) + ' (' + WEEK[parse(d).getDay()] + ')</button>';
+        }).join('') +
+          '<input type="date" data-mv-input value="' + esc(newDate) + '" aria-label="다른 날짜">' +
+          '<button type="button" class="sortchip" data-mv-to="" aria-pressed="' + (!newDate) + '">날짜 없음</button>';
+      }
+      paintMove();
+      moveBox.addEventListener('change', function (e) {
+        if (e.target.matches('[data-mv-input]') && e.target.value) { newDate = e.target.value; paintMove(); }
+      });
       var addrBox = bs.querySelector('[data-addrbox]');
       var picker = makePicker(addrBox);
       function openPicker() {
@@ -2105,15 +2154,18 @@
           picker.moveTo(Number(p.y), Number(p.x), 3, nm);
           return;
         }
+        var mt = e.target.closest('[data-mv-to]');
+        if (mt) { newDate = mt.getAttribute('data-mv-to'); paintMove(); return; }
         var a = e.target.closest('[data-act]');
         if (!a) return;
         var act = a.getAttribute('data-act');
         if (act === 'close') closeSheet();
         else if (act === 'clear-time') clock.clear();
+        else if (act === 'movedate') moveBox.hidden = !moveBox.hidden;
         else if (act === 'addr') { if (addrBox.hidden) openPicker(); else addrBox.hidden = true; }
         else if (act === 'asearch') doAddrSearch();
         else if (act === 'del') {
-          trip.stops = trip.stops.filter(function (s) { return s !== st; });
+          removeStop(st);
           save();
           closeSheet();
           renderAll(true);
@@ -2129,10 +2181,13 @@
             st.lng = g.lng;
             moved = true;
           }
+          var dateMoved = newDate !== (st.date || '');
+          if (dateMoved) st.date = newDate;
           save();
           closeSheet();
-          renderAll(moved);
-          if (moved) toast('지도에 표시했어요');
+          renderAll(moved || dateMoved);
+          if (dateMoved) toast(dateText(newDate) + (newDate ? '로' : '으로') + ' 옮겼어요');
+          else if (moved) toast('지도에 표시했어요');
         }
       });
     });
@@ -2161,7 +2216,6 @@
   });
   window.addEventListener('pageshow', function () { document.body.classList.remove('switching'); });
 
-  trip = store.trips.find(function (t) { return t.id === store.current; }) || store.trips[0] || null;
   renderAll(false);
   loadKakao();
   setupLocate(function () { return kakaoReady ? map : null; }, toast);
