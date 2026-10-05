@@ -604,7 +604,7 @@
     cursor: pointer;
   }
   .ignorebtn[aria-pressed="true"] { border-color: var(--plum); background: var(--plum); color: var(--bg); }
-  /* 아래 버튼 줄: 전체보기 · 추가하기 · 확정 */
+  /* 아래 버튼 줄: 전체보기 · 추가하기 */
   .addbar { align-items: center; gap: 26px; }
   /* 서브 버튼: 원형보다 살짝 긴 작은 알약, 아이콘만 */
   .sidebtn {
@@ -621,11 +621,9 @@
     transition: background .2s ease, color .2s ease, border-color .2s ease;
   }
   .sidebtn svg { width: 15px; height: 15px; }
-  /* 확정됨: 쨍하지 않게 연한 초록 바탕 + 초록 체크 */
-  #doneBtn[aria-pressed="true"] { border-color: #cfe5d7; background: #e3f1e8; color: #3f7a5a; }
-  @media (prefers-color-scheme: dark) { #doneBtn[aria-pressed="true"] { border-color: #2c4537; background: #203229; color: #7cc59a; } }
+  .sidebtn.spacer { visibility: hidden; } /* 추가하기를 가운데에 두려고 오른쪽 빈자리 */
 
-  /* 확정 후 지나간 일정: 체크한 것처럼, 각자 색을 흐리게 */
+  /* 지나간 일정: 체크한 것처럼, 각자 색을 흐리게 */
   .stop.past { opacity: .62; }
   .stop.past .tt { color: var(--muted); }
   .stop.past .num { filter: saturate(.35); opacity: .7; }
@@ -716,9 +714,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       추가하기
     </button>
-    <button class="sidebtn" id="doneBtn" type="button" aria-pressed="false" aria-label="확정" title="확정: 지나간 일정 흐리게">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
-    </button>
+    <span class="sidebtn spacer" aria-hidden="true"></span>
   </div>
   <button type="button" class="dangerlink" id="delTrip">이 코스 지우기</button>
   <div class="confirm" id="delConfirm" hidden><span>이 코스를 통째로 지울까요?</span>
@@ -1163,11 +1159,15 @@
     });
   }
 
-  // ---------- 확정: 지금 시각 기준으로 끝난 일정은 흐리게 ----------
+  // ---------- 지나간 일정은 자동으로 흐리게 ----------
+  // 날짜 있는 코스만: 지난 날짜는 전부, 오늘은 끝난 일정(진행 중 제외), 앞으로 할 날은 그대로
   function todayYmd() { return ymd(new Date()); }
   function isPast(st) {
-    if (!trip || !trip.confirmed || !hasTime(st)) return false;
-    var d = trip.start ? addDays(trip.start, st.day || 0) : todayYmd();
+    if (!trip || !trip.start) return false;
+    var d = addDays(trip.start, st.day || 0);
+    var today = todayYmd();
+    if (d < today) return true;
+    if (d > today || !hasTime(st)) return false;
     var end = parse(d);
     end.setMinutes(st.end + (st.end <= st.start ? 1440 : 0)); // 자정을 넘기는 일정
     return Date.now() >= end.getTime();
@@ -1175,24 +1175,12 @@
   var pastTimer = null;
   function syncPastTimer() {
     clearInterval(pastTimer);
-    if (trip && trip.confirmed) pastTimer = setInterval(function () { renderStops(); drawMap(false); }, 60000);
+    // 오늘이 이 코스 기간 안이면 1분마다 다시 확인
+    if (trip && trip.start) {
+      var t = todayYmd();
+      if (t >= trip.start && t <= (trip.end || trip.start)) pastTimer = setInterval(function () { renderStops(); drawMap(false); }, 60000);
+    }
   }
-  function renderDoneBtn() {
-    var b = document.getElementById('doneBtn');
-    var on = !!(trip && trip.confirmed);
-    b.setAttribute('aria-pressed', String(on));
-    b.setAttribute('aria-label', on ? '확정됨 (누르면 해제)' : '확정');
-  }
-  document.getElementById('doneBtn').addEventListener('click', function () {
-    if (!trip) { toast('먼저 일정을 추가해 주세요'); return; }
-    trip.confirmed = !trip.confirmed;
-    save();
-    renderDoneBtn();
-    syncPastTimer();
-    renderStops();
-    drawMap(false);
-    toast(trip.confirmed ? '확정했어요. 지나간 일정은 흐리게 보여요' : '확정을 풀었어요');
-  });
 
   // ---------- 3. 코스 목록 ----------
   function renderStops() {
@@ -1231,7 +1219,6 @@
 
   function renderAll(fit) {
     focusedId = null;
-    renderDoneBtn();
     syncPastTimer();
     renderTrips();
     renderWhen();
