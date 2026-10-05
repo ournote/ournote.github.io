@@ -2003,7 +2003,15 @@
     window.scrollTo(0, 0);
     setTimeout(function () {
       if (map) { map.relayout(); drawMap(!on); }
-      if (on) focusTopStop();
+      if (on) {
+        // 지금 일정부터: 아직 안 지난 첫 일정(진행 중이거나 다음 일정)을 맨 위로
+        var next = ordered().find(function (st) { return !isPast(st); });
+        var row = next ? stopsEl.querySelector('.stop[data-id="' + next.id + '"]') : null;
+        if (row && row !== stopsEl.querySelector('.stop')) {
+          stopsEl.scrollTop = row.getBoundingClientRect().top - stopsEl.getBoundingClientRect().top + stopsEl.scrollTop - 10;
+        }
+        focusTopStop();
+      }
     }, 80);
   }
   document.getElementById('focusBtn').addEventListener('click', function () { setFocus(true); });
