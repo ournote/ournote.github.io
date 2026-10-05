@@ -605,19 +605,20 @@
   }
   .ignorebtn[aria-pressed="true"] { border-color: var(--plum); background: var(--plum); color: var(--bg); }
   /* 아래 버튼 줄: 전체보기 · 추가하기 · 확정 */
-  .addbar { align-items: center; gap: 8px; }
+  .addbar { align-items: center; gap: 26px; }
+  /* 서브 버튼: 원형보다 살짝 긴 작은 알약, 아이콘만 */
   .sidebtn {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    height: 38px;
-    padding: 0 13px;
+    display: inline-grid;
+    place-items: center;
+    width: 42px;
+    height: 30px;
+    padding: 0;
     border-radius: 999px;
     border: 1px solid var(--line);
     background: transparent;
     color: var(--muted);
-    font-size: 13px;
     cursor: pointer;
+    transition: background .2s ease, color .2s ease, border-color .2s ease;
   }
   .sidebtn svg { width: 15px; height: 15px; }
   #doneBtn[aria-pressed="true"] { border-color: #3f7a5a; background: #3f7a5a; color: #fff; }
@@ -707,17 +708,15 @@
   <div class="sec">코스</div>
   <div class="stops" id="stops"></div>
   <div class="addbar">
-    <button class="sidebtn" id="focusBtn" type="button" aria-label="전체보기">
+    <button class="sidebtn" id="focusBtn" type="button" aria-label="전체보기" title="전체보기">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
-      <span>전체보기</span>
     </button>
     <button class="addbtn" id="addBtn" type="button">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       추가하기
     </button>
-    <button class="sidebtn" id="doneBtn" type="button" aria-pressed="false" aria-label="확정">
+    <button class="sidebtn" id="doneBtn" type="button" aria-pressed="false" aria-label="확정" title="확정: 지나간 일정 흐리게">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
-      <span data-label>확정</span>
     </button>
   </div>
   <button type="button" class="dangerlink" id="delTrip">이 코스 지우기</button>
@@ -1181,7 +1180,7 @@
     var b = document.getElementById('doneBtn');
     var on = !!(trip && trip.confirmed);
     b.setAttribute('aria-pressed', String(on));
-    b.querySelector('[data-label]').textContent = on ? '확정됨' : '확정';
+    b.setAttribute('aria-label', on ? '확정됨 (누르면 해제)' : '확정');
   }
   document.getElementById('doneBtn').addEventListener('click', function () {
     if (!trip) { toast('먼저 일정을 추가해 주세요'); return; }
