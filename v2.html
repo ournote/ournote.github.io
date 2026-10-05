@@ -112,7 +112,7 @@
   .stage { margin-top: 6px; }
   .ptitles {
     position: relative;
-    height: 46px;
+    height: 36px;
     margin: 0 2px 8px;
     pointer-events: none;
   }
@@ -122,20 +122,17 @@
     right: 0;
     bottom: 0;
     display: flex;
-    align-items: baseline;
-    gap: 10px;
+    justify-content: center;
     opacity: 0;
     will-change: opacity, transform;
   }
   .pt .name {
     font-family: var(--serif);
     font-weight: 700;
-    font-size: 22px;
+    font-size: 18px;
     color: var(--plum);
     white-space: nowrap;
   }
-  .pt .cnt { font-size: 12.5px; color: var(--muted); white-space: nowrap; }
-  .pt .cnt b { color: var(--rose); font-weight: 600; }
 
   .deck {
     display: flex;
@@ -354,11 +351,7 @@
 
   function renderTitles(all) {
     ptitles.innerHTML = PAGES.map(function (p, i) {
-      var list = pageItems(all, p.id);
-      var left = list.filter(function (x) { return x.done !== true; }).length;
-      var did = list.length - left;
-      return '<div class="pt" data-i="' + i + '"><span class="name">' + esc(p.name) + '</span>' +
-        '<span class="cnt">남은 <b>' + left + '</b>' + (did ? ' · 했던 ' + did : '') + '</span></div>';
+      return '<div class="pt" data-i="' + i + '"><span class="name">' + esc(p.name) + '</span></div>';
     }).join('');
   }
 
