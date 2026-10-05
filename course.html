@@ -1324,7 +1324,7 @@
   }
 
 
-  // ---------- 한 손가락 확대·축소: 두 번 탭한 채로 위로 끌면 확대, 아래로 끌면 축소 ----------
+  // ---------- 한 손가락 확대·축소: 두 번 탭한 채로 아래로 끌면 확대, 위로 끌면 축소 ----------
   function enableOneFingerZoom(m, el) {
     var lastTapEnd = 0, lastX = 0, lastY = 0;
     var downAt = 0, downX = 0, downY = 0, wasTap = true;
@@ -1373,8 +1373,8 @@
       stop(e);
       var dy = e.touches[0].clientY - startY;
       if (Math.abs(dy) > 6) moved = true;
-      // 위로 끌면(dy<0) 단계가 작아짐 = 확대
-      desired = Math.max(MIN - startLevel, Math.min(MAX - startLevel, dy / STEP));
+      // 아래로 끌면(dy>0) 단계가 작아짐 = 확대
+      desired = Math.max(MIN - startLevel, Math.min(MAX - startLevel, -dy / STEP));
       // 한 단계 넘게 벌어지면 지도에 반영해서 화면이 흐려지지 않게
       var target = Math.round(desired);
       if (Math.abs(desired - committed) >= 0.75 && target !== committed) {
