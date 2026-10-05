@@ -406,6 +406,43 @@
     text-align: center;
   }
   .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  /* 현위치 버튼 */
+  .locbtn {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    z-index: 4;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    color: var(--plum);
+    display: grid;
+    place-items: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .15);
+    cursor: pointer;
+    transition: bottom .2s ease;
+  }
+  .locbtn svg { width: 20px; height: 20px; }
+  .locbtn.on { color: #3b82f6; }
+  .locbtn.busy svg { animation: locspin 1s linear infinite; }
+  @keyframes locspin { to { transform: rotate(360deg); } }
+  .me {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #3b82f6;
+    border: 3px solid #fff;
+    animation: mepulse 2s ease-out infinite;
+  }
+  @keyframes mepulse {
+    0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, .45); }
+    70% { box-shadow: 0 0 0 14px rgba(59, 130, 246, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+  }
 </style>
 </head>
 <body>
@@ -427,6 +464,9 @@
     <div id="map"></div>
     <div class="mapmsg" id="mapMsg">지도를 불러오는 중…</div>
     <div class="maphint" id="mapHint" hidden>장소를 추가하면 여기에 코스가 그려져요</div>
+    <button class="locbtn" id="locBtn" type="button" aria-label="현위치">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8" opacity=".35"/></svg>
+    </button>
   </div>
 
   <div class="sec">코스</div>
@@ -878,6 +918,44 @@
     }
   }
 
+
+  // ---------- 현위치 (카카오 웹 지도엔 기본 버튼이 없어 직접 만듦) ----------
+  function setupLocate(getMap, notify) {
+    var btn = document.getElementById('locBtn');
+    var me = null, ring = null;
+    btn.addEventListener('click', function () {
+      var m = getMap();
+      if (!m || !window.kakao) { notify('지도가 아직 준비되지 않았어요'); return; }
+      if (!navigator.geolocation) { notify('이 기기에서는 현위치를 쓸 수 없어요'); return; }
+      btn.classList.add('busy');
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        btn.classList.remove('busy');
+        btn.classList.add('on');
+        var k = window.kakao;
+        var ll = new k.maps.LatLng(pos.coords.latitude, pos.coords.longitude);
+        if (!me) {
+          var dot = document.createElement('div');
+          dot.className = 'me';
+          me = new k.maps.CustomOverlay({ position: ll, content: dot, xAnchor: 0.5, yAnchor: 0.5, zIndex: 5 });
+          me.setMap(m);
+        } else {
+          me.setPosition(ll);
+        }
+        var acc = pos.coords.accuracy;
+        if (ring) { ring.setMap(null); ring = null; }
+        if (acc && acc < 1500) {
+          ring = new k.maps.Circle({ center: ll, radius: acc, strokeWeight: 1, strokeColor: '#3b82f6', strokeOpacity: 0.35, fillColor: '#3b82f6', fillOpacity: 0.08 });
+          ring.setMap(m);
+        }
+        if (m.getLevel() > 5) m.setLevel(4);
+        m.panTo(ll);
+      }, function (err) {
+        btn.classList.remove('busy');
+        notify(err && err.code === 1 ? '위치 권한을 허용해 주세요 (설정 → 개인정보 보호 → 위치 서비스)' : '현위치를 찾지 못했어요');
+      }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 });
+    });
+  }
+
   // ---------- 바텀시트 ----------
   var stack = [];
   function openSheet(html, onMount) {
@@ -1165,6 +1243,7 @@
   trip = store.trips.find(function (t) { return t.id === store.current; }) || store.trips[0] || null;
   renderAll(false);
   loadKakao();
+  setupLocate(function () { return kakaoReady ? map : null; }, toast);
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     navigator.serviceWorker.register('/sw.js').catch(function () {});
