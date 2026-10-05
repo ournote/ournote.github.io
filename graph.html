@@ -1,0 +1,1022 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>약속 네트워크 · 우리 약속 노트</title>
+<meta name="theme-color" content="#120d14">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="약속 노트">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+  /* 이 화면은 라이트/다크 상관없이 어두운 '네트워크' 테마로 고정 */
+  :root {
+    --bg: #120d14;
+    --bg2: #1d1420;
+    --panel: rgba(32, 23, 36, .92);
+    --ink: #f3eaf0;
+    --muted: #a8999f;
+    --line: rgba(255, 255, 255, .1);
+    --rose: #e3829f;
+    --serif: "Gowun Batang", "Apple SD Gothic Neo", serif;
+    --sans: "IBM Plex Sans KR", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: radial-gradient(120% 90% at 50% 40%, var(--bg2) 0%, var(--bg) 70%);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-tap-highlight-color: transparent;
+    animation: enter .45s ease both;
+  }
+  @keyframes enter { from { opacity: 0; } to { opacity: 1; } }
+  body.leaving { opacity: 0; transition: opacity .25s ease; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+
+  canvas#net {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    cursor: grab;
+  }
+  canvas#net.dragging { cursor: grabbing; }
+
+  .bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 5;
+    padding: calc(12px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    pointer-events: none;
+  }
+  .bar > * { pointer-events: auto; }
+  .round {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, .06);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: grid;
+    place-items: center;
+    text-decoration: none;
+    color: var(--ink);
+    font-size: 18px;
+  }
+  .round[aria-pressed="true"] { background: var(--rose); border-color: var(--rose); color: #1c171d; }
+  .head { flex: 1; min-width: 0; padding-top: 2px; }
+  .head h1 {
+    margin: 0;
+    font-family: var(--serif);
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .head p { margin: 1px 0 0; font-size: 12.5px; color: var(--muted); }
+
+  .legend {
+    position: fixed;
+    left: max(16px, env(safe-area-inset-left));
+    top: calc(70px + env(safe-area-inset-top));
+    z-index: 4;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: calc(100% - 32px);
+  }
+  .legend button {
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, .05);
+    border-radius: 999px;
+    padding: 3px 10px 3px 8px;
+    font-size: 12px;
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legend i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .legend button[aria-pressed="true"] { color: var(--ink); background: rgba(255, 255, 255, .12); }
+
+  /* 하단 패널 (선택한 노드 / 분석) */
+  .panel {
+    position: fixed;
+    left: 50%;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    width: min(528px, calc(100% - 24px));
+    max-height: 52vh;
+    overflow-y: auto;
+    z-index: 6;
+    background: var(--panel);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 14px 16px 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, .45);
+    animation: up .22s ease both;
+  }
+  @keyframes up { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  .panel .x {
+    position: sticky;
+    float: right;
+    top: 0;
+    width: 30px;
+    height: 30px;
+    margin: -6px -8px 0 6px;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font-size: 20px;
+  }
+  .kicker { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .kicker i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .ptitle {
+    margin: 2px 0 0;
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: 18px;
+    line-height: 1.4;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  .pmeta { margin-top: 4px; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+  .sec { margin: 14px 0 6px; font-size: 12.5px; color: var(--muted); font-weight: 500; letter-spacing: .02em; }
+  .rel { display: flex; flex-direction: column; gap: 6px; }
+  .rel button {
+    width: 100%;
+    text-align: left;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, .04);
+    border-radius: 12px;
+    padding: 8px 10px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px 10px;
+    align-items: center;
+  }
+  .rel .t { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rel .why { grid-column: 1 / 2; font-size: 12px; color: var(--muted); }
+  .rel .pct { grid-row: 1 / 3; grid-column: 2; font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; }
+  .meter { height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .08); grid-column: 1 / 3; overflow: hidden; margin-top: 4px; }
+  .meter span { display: block; height: 100%; border-radius: 3px; }
+
+  .insights { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+  .ins { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.55; word-break: keep-all; }
+  .ins .ic {
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, .07);
+    display: grid;
+    place-items: center;
+    font-size: 15px;
+  }
+  .ins b { color: var(--rose); font-weight: 600; }
+  .ins small { display: block; color: var(--muted); font-size: 12.5px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+  .stat { background: rgba(255, 255, 255, .05); border-radius: 12px; padding: 8px 10px; }
+  .stat b { display: block; font-size: 19px; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 11.5px; color: var(--muted); }
+
+  .hint {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(18px + env(safe-area-inset-bottom));
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--muted);
+    z-index: 3;
+    pointer-events: none;
+    transition: opacity .3s;
+  }
+  .empty {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    color: var(--muted);
+    padding: 24px;
+    font-size: 14px;
+    line-height: 1.7;
+    word-break: keep-all;
+    z-index: 2;
+  }
+</style>
+</head>
+<body>
+<canvas id="net"></canvas>
+
+<div class="bar">
+  <a class="round" href="/" id="backBtn" aria-label="약속 목록으로">←</a>
+  <div class="head">
+    <h1>약속 네트워크</h1>
+    <p id="summary">분석 중…</p>
+  </div>
+  <button class="round" type="button" id="doneBtn" aria-pressed="false" aria-label="했던 것도 보기" title="했던 것도 보기">✓</button>
+  <button class="round" type="button" id="aiBtn" aria-pressed="false" aria-label="분석 보기" title="분석 보기">✦</button>
+</div>
+
+<div class="legend" id="legend"></div>
+<div class="hint" id="hint">점을 누르면 연결된 약속과 관련도를 보여줘요 · 드래그·확대 가능</div>
+<div class="empty" id="empty" hidden></div>
+<div class="panel" id="panel" hidden></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var STORAGE_KEY = 'ournote:items';
+  var GEO_KEY = 'ournote:geo';
+
+  var CATS = [
+    { id: 'food', emoji: '🍰', label: '맛집·디저트', color: '#ee8aa8' },
+    { id: 'gift', emoji: '🎁', label: '선물·만들어주기', color: '#f0c070' },
+    { id: 'surprise', emoji: '💐', label: '서프라이즈', color: '#b994ff' },
+    { id: 'date', emoji: '✈️', label: '데이트·여행', color: '#6cc6e8' }
+  ];
+  var CAT = {};
+  CATS.forEach(function (c) { CAT[c.id] = c; });
+  var HUB_COLOR = { region: '#8fe0b0', word: '#e9dcff' };
+
+  // ---------- 데이터 ----------
+  function readJSON(key, fallback) {
+    try {
+      var v = JSON.parse(localStorage.getItem(key));
+      return v === null || v === undefined ? fallback : v;
+    } catch (e) {
+      return fallback;
+    }
+  }
+  function str(v) { return typeof v === 'string' ? v : ''; }
+
+  var allItems = (function () {
+    var raw = readJSON(STORAGE_KEY, []);
+    if (!Array.isArray(raw)) return [];
+    return raw.filter(function (x) { return x && typeof x.title === 'string' && x.title.trim(); }).map(function (x) {
+      return {
+        id: String(x.id),
+        title: x.title.trim(),
+        cat: CAT[x.cat] ? x.cat : 'food',
+        place: str(x.place).trim(),
+        memo: str(x.memo),
+        when: str(x.when).trim(),
+        done: x.done === true,
+        doneAt: str(x.doneAt),
+        createdAt: Number(x.createdAt) || 0
+      };
+    });
+  })();
+  var geo = readJSON(GEO_KEY, {});
+  if (!geo || typeof geo !== 'object') geo = {};
+
+  // ---------- 분석: 텍스트 ----------
+  var CITIES = ['서울', '부산', '대구', '인천', '광주', '대전', '울산', '세종', '제주', '서귀포', '수원', '성남', '고양', '용인',
+    '춘천', '강릉', '속초', '양양', '평창', '청주', '천안', '전주', '군산', '여수', '순천', '목포', '광양', '포항', '경주',
+    '안동', '통영', '거제', '남해', '창원', '김해', '가평', '양평', '파주', '일산', '분당', '판교', '성수', '홍대', '연남',
+    '망원', '이태원', '한남', '을지로', '익선동', '잠실', '강남', '신사', '압구정', '방배', '서촌', '북촌', '해운대', '광안리', '전포'];
+
+  var SUFFIXES = ['만들어주기', '만들어 주기', '해주기', '해 주기', '같이', '먹기', '하기', '가기', '보기', '주기',
+    '으로', '에서', '이랑', '하고', '에게', '한테', '까지', '부터', '처럼', '이나', '에', '를', '을', '은', '는', '이', '가', '도', '와', '과', '랑', '로', '의'];
+  var STOP = { '같이': 1, '해주기': 1, '만들어주기': 1, '주기': 1, '하기': 1, '먹기': 1, '가기': 1, '보기': 1, '그리고': 1,
+    '가게': 1, '주문': 1, '만들어': 1, '만들어줄': 1, '해줄': 1, '먹으러': 1, '가보기': 1, '문의': 1, '휴무': 1, '요일': 1, '월요일': 1, '화요일': 1, '수요일': 1, '목요일': 1, '금요일': 1,
+    '토요일': 1, '일요일': 1, '카카오': 1, '채널': 1, '사진': 1, '내': 1, '우리': 1, '만들': 1, '해주': 1, 'www': 1, 'com': 1,
+    'kr': 1, 'http': 1, 'https': 1, 'instagram': 1 };
+
+  function words(text) {
+    var out = [];
+    (text.toLowerCase().match(/[가-힣]+|[a-z]{3,}/g) || []).forEach(function (w) {
+      if (STOP[w]) return;
+      if (/^[가-힣]+$/.test(w)) {
+        var changed = true;
+        while (changed && w.length > 2) {
+          changed = false;
+          for (var i = 0; i < SUFFIXES.length; i++) {
+            var s = SUFFIXES[i];
+            if (w.length - s.length >= 2 && w.slice(-s.length) === s) { w = w.slice(0, -s.length); changed = true; break; }
+          }
+        }
+      }
+      if (w.length >= 2 && !STOP[w]) out.push(w);
+    });
+    return out;
+  }
+
+  function bigrams(ws) {
+    var set = {};
+    ws.forEach(function (w) {
+      if (w.length === 2) set[w] = 1;
+      for (var i = 0; i < w.length - 1; i++) set[w.substr(i, 2)] = 1;
+    });
+    return set;
+  }
+
+  function jaccard(a, b) {
+    var inter = 0, uni = 0, k;
+    for (k in a) { uni++; if (b[k]) inter++; }
+    for (k in b) if (!a[k]) uni++;
+    return uni ? inter / uni : 0;
+  }
+
+  function regionOf(it) {
+    var p = it.place.replace(/\s+/g, ' ').trim();
+    if (p) {
+      var t = p.split(' ');
+      var first = t[0].replace(/(특별시|광역시|특별자치시|특별자치도)$/, '');
+      if (/(도)$/.test(first) && t[1]) return t[1];
+      if (t[1] && /(구|군)$/.test(t[1]) && /(시|^서울|^부산|^대구|^인천|^광주|^대전|^울산)/.test(first)) return first.replace(/시$/, '') + ' ' + t[1];
+      return first;
+    }
+    var text = it.title + ' ' + it.memo;
+    for (var i = 0; i < CITIES.length; i++) if (text.indexOf(CITIES[i]) >= 0) return CITIES[i];
+    return '';
+  }
+  function cityOf(region) { return region ? region.split(' ')[0].replace(/(시|군)$/, '') : ''; }
+
+  function distKm(a, b) {
+    var R = 6371, toR = Math.PI / 180;
+    var dLat = (b.lat - a.lat) * toR, dLng = (b.lng - a.lng) * toR;
+    var h = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(a.lat * toR) * Math.cos(b.lat * toR) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+
+  // ---------- 그래프 구성 ----------
+  var showDone = false;
+  var catFilter = {}; CATS.forEach(function (c) { catFilter[c.id] = true; });
+  var nodes = [], links = [], nodeById = {}, pairs = [];
+
+  function build() {
+    var prev = {};
+    nodes.forEach(function (n) { prev[n.id] = n; });
+
+    var items = allItems.filter(function (it) { return (showDone || !it.done) && catFilter[it.cat]; });
+    var feats = items.map(function (it) {
+      var ws = words(it.title + ' ' + it.memo);
+      var region = regionOf(it);
+      return { it: it, ws: ws, bg: bigrams(ws), region: region, city: cityOf(region), g: it.place ? geo[it.place] : null };
+    });
+
+    nodes = []; links = []; nodeById = {}; pairs = [];
+    function addNode(n) {
+      var p = prev[n.id];
+      if (p) { n.x = p.x; n.y = p.y; n.vx = p.vx; n.vy = p.vy; }
+      else { var a = Math.random() * Math.PI * 2, r = 30 + Math.random() * 80; n.x = Math.cos(a) * r; n.y = Math.sin(a) * r; n.vx = 0; n.vy = 0; }
+      n.deg = 0;
+      nodes.push(n); nodeById[n.id] = n;
+      return n;
+    }
+
+    // 약속 노드
+    feats.forEach(function (f) {
+      addNode({ id: 'i:' + f.it.id, kind: 'item', item: f.it, f: f, color: CAT[f.it.cat].color, label: f.it.title });
+    });
+
+    // 카테고리 허브
+    CATS.forEach(function (c) {
+      var members = feats.filter(function (f) { return f.it.cat === c.id; });
+      if (!members.length) return;
+      addNode({ id: 'c:' + c.id, kind: 'cat', label: c.emoji + ' ' + c.label, color: c.color, count: members.length });
+      members.forEach(function (f) { links.push({ s: 'c:' + c.id, t: 'i:' + f.it.id, w: 0.55, kind: 'hub' }); });
+    });
+
+    // 지역 허브 (2곳 이상이면 시/구 단위, 같은 도시끼리도 묶음)
+    var byRegion = {};
+    feats.forEach(function (f) { if (f.region) (byRegion[f.region] = byRegion[f.region] || []).push(f); });
+    Object.keys(byRegion).forEach(function (r) {
+      addNode({ id: 'r:' + r, kind: 'region', label: '📍 ' + r, color: HUB_COLOR.region, count: byRegion[r].length });
+      byRegion[r].forEach(function (f) { links.push({ s: 'r:' + r, t: 'i:' + f.it.id, w: 0.5, kind: 'hub' }); });
+    });
+
+    // 키워드 허브: 2개 이상의 약속에 공통으로 나오는 낱말(부분 문자열 포함)
+    var cand = {};
+    feats.forEach(function (f, idx) {
+      var seen = {};
+      f.ws.forEach(function (w) {
+        for (var len = Math.min(5, w.length); len >= 2; len--) {
+          for (var i = 0; i + len <= w.length; i++) {
+            var sub = w.substr(i, len);
+            if (STOP[sub] || seen[sub]) continue;
+            seen[sub] = 1;
+            (cand[sub] = cand[sub] || []).push(idx);
+          }
+        }
+      });
+    });
+    var kws = Object.keys(cand).filter(function (k) { return cand[k].length >= 2; })
+      .sort(function (a, b) { return b.length - a.length || cand[b].length - cand[a].length; });
+    var kept = [], o2w = {};
+    feats.forEach(function (f) { f.ws.forEach(function (w) { o2w[w] = 1; }); });
+    kws.forEach(function (k) {
+      var key = cand[k].join(',');
+      // 더 긴 키워드가 같은 약속 묶음을 이미 설명하면 생략
+      if (kept.some(function (o) { return o.k.indexOf(k) >= 0 && o.key === key; })) return;
+      if (/^[가-힣]$/.test(k)) return;
+      // 두 글자 조각은 실제로 한 낱말일 때만 (케이크/케이스의 '케이' 같은 우연한 조각 제외)
+      if (k.length === 2 && !o2w[k]) return;
+      kept.push({ k: k, key: key, idx: cand[k] });
+    });
+    kept.slice(0, 24).forEach(function (o) {
+      addNode({ id: 'w:' + o.k, kind: 'word', label: '#' + o.k, color: HUB_COLOR.word, count: o.idx.length });
+      o.idx.forEach(function (i) { links.push({ s: 'w:' + o.k, t: 'i:' + feats[i].it.id, w: 0.6, kind: 'hub' }); });
+    });
+
+    // 약속끼리의 관련도
+    for (var i = 0; i < feats.length; i++) {
+      for (var j = i + 1; j < feats.length; j++) {
+        var a = feats[i], b = feats[j], why = [], s = 0;
+        if (a.it.cat === b.it.cat) { s += 0.3; why.push('같은 카테고리'); }
+        var jac = jaccard(a.bg, b.bg);
+        if (jac > 0) {
+          s += Math.min(0.45, jac * 1.4);
+          var common = kept.filter(function (o) { return o.idx.indexOf(i) >= 0 && o.idx.indexOf(j) >= 0; }).map(function (o) { return '#' + o.k; });
+          why.push(common.length ? common.slice(0, 2).join(' ') : '비슷한 표현');
+        }
+        if (a.region && a.region === b.region) { s += 0.25; why.push('같은 지역'); }
+        else if (a.city && a.city === b.city) { s += 0.15; why.push('같은 도시'); }
+        if (a.g && b.g) {
+          var d = distKm(a.g, b.g);
+          if (d < 3) { s += 0.2; why.push(d < 1 ? '걸어서 갈 거리' : '가까워요 ' + d.toFixed(1) + 'km'); }
+          else if (d < 15) { s += 0.1; why.push(d.toFixed(0) + 'km 거리'); }
+        }
+        if (a.it.when && a.it.when === b.it.when) { s += 0.1; why.push('목표 시기 같음'); }
+        s = Math.min(1, s);
+        if (s > 0) pairs.push({ a: a.it.id, b: b.it.id, s: s, why: why });
+        if (s >= 0.3) links.push({ s: 'i:' + a.it.id, t: 'i:' + b.it.id, w: s, kind: 'rel' });
+      }
+    }
+
+    links.forEach(function (l) {
+      l.source = nodeById[l.s]; l.target = nodeById[l.t];
+      l.source.deg++; l.target.deg++;
+    });
+    nodes.forEach(function (n) {
+      n.lw = Math.min(n.label.length, 14) * (n.kind === 'cat' ? 13 : 11.5);
+      n.r = n.kind === 'item' ? 5 + Math.min(7, n.deg * 0.7) : n.kind === 'cat' ? 9 + Math.min(8, n.count * 1.2) : 4 + Math.min(6, n.count * 1.1);
+    });
+
+    renderSummary();
+    renderLegend();
+    var empty = document.getElementById('empty');
+    if (!allItems.length) {
+      empty.innerHTML = '아직 약속이 없어요.<br>약속을 몇 개 적으면 서로 어떻게 이어지는지 보여줄게요.';
+      empty.hidden = false;
+    } else if (!nodes.length) {
+      empty.innerHTML = '보여줄 약속이 없어요.<br>위의 카테고리나 ✓ 버튼으로 범위를 넓혀보세요.';
+      empty.hidden = false;
+    } else empty.hidden = true;
+
+    userMoved = false;
+    if (selected && !nodeById[selected.id]) selected = null;
+    if (selected) selected = nodeById[selected.id];
+    reheat(1);
+  }
+
+  function relatedOf(itemId) {
+    return pairs.filter(function (p) { return p.a === itemId || p.b === itemId; })
+      .map(function (p) { return { other: p.a === itemId ? p.b : p.a, s: p.s, why: p.why }; })
+      .sort(function (x, y) { return y.s - x.s; });
+  }
+
+  // ---------- 화면 텍스트 ----------
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function renderSummary() {
+    var itemN = nodes.filter(function (n) { return n.kind === 'item'; }).length;
+    var relN = links.filter(function (l) { return l.kind === 'rel'; }).length;
+    var hubN = nodes.filter(function (n) { return n.kind === 'word' || n.kind === 'region'; }).length;
+    document.getElementById('summary').textContent = '약속 ' + itemN + ' · 연결 ' + relN + ' · 공통점 ' + hubN;
+  }
+
+  function renderLegend() {
+    document.getElementById('legend').innerHTML = CATS.map(function (c) {
+      return '<button type="button" data-cat="' + c.id + '" aria-pressed="' + catFilter[c.id] + '"><i style="background:' + c.color + '"></i>' + esc(c.label) + '</button>';
+    }).join('') +
+      '<button type="button" disabled aria-pressed="true"><i style="background:' + HUB_COLOR.region + '"></i>지역</button>' +
+      '<button type="button" disabled aria-pressed="true"><i style="background:' + HUB_COLOR.word + '"></i>키워드</button>';
+  }
+
+  var panel = document.getElementById('panel');
+  var panelMode = null;
+
+  function pctColor(s) { return s >= 0.6 ? '#ee8aa8' : s >= 0.4 ? '#f0c070' : '#a8999f'; }
+
+  function relRows(list) {
+    return '<div class="rel">' + list.map(function (r) {
+      var it = allItems.find(function (x) { return x.id === r.other; });
+      if (!it) return '';
+      var pct = Math.round(r.s * 100);
+      return '<button type="button" data-goto="i:' + esc(it.id) + '"><span class="t">' + CAT[it.cat].emoji + ' ' + esc(it.title) + (it.done ? ' · 완료' : '') + '</span>' +
+        '<span class="pct" style="color:' + pctColor(r.s) + '">' + pct + '%</span>' +
+        '<span class="why">' + esc(r.why.join(' · ')) + '</span>' +
+        '<span class="meter"><span style="width:' + pct + '%;background:' + pctColor(r.s) + '"></span></span></button>';
+    }).join('') + '</div>';
+  }
+
+  function showNodePanel(n) {
+    panelMode = 'node';
+    var html = '<button class="x" type="button" data-close aria-label="닫기">×</button>';
+    if (n.kind === 'item') {
+      var it = n.item, c = CAT[it.cat];
+      var shown = {};
+      nodes.forEach(function (m) { if (m.kind === 'item') shown[m.item.id] = 1; });
+      var rel = relatedOf(it.id).filter(function (r) { return shown[r.other]; }).slice(0, 5);
+      html += '<div class="kicker"><i style="background:' + c.color + '"></i>' + c.emoji + ' ' + esc(c.label) + (it.done ? ' · ' + esc(it.doneAt.replace(/-/g, '.')) + ' 완료' : '') + '</div>' +
+        '<div class="ptitle">' + esc(it.title) + '</div>' +
+        (it.place ? '<div class="pmeta">📍 ' + esc(it.place) + '</div>' : '') +
+        (it.when ? '<div class="pmeta">⏳ ' + esc(it.when) + '</div>' : '') +
+        '<div class="sec">관련도 높은 약속</div>' +
+        (rel.length ? relRows(rel) : '<div class="pmeta">아직 닮은 약속이 없어요.</div>');
+    } else {
+      var members = links.filter(function (l) { return l.source === n || l.target === n; })
+        .map(function (l) { return l.source === n ? l.target : l.source; })
+        .filter(function (m) { return m.kind === 'item'; });
+      var kind = n.kind === 'cat' ? '카테고리' : n.kind === 'region' ? '지역' : '공통 키워드';
+      html += '<div class="kicker"><i style="background:' + n.color + '"></i>' + kind + '</div>' +
+        '<div class="ptitle">' + esc(n.label) + '</div>' +
+        '<div class="pmeta">이어진 약속 ' + members.length + '개</div>' +
+        '<div class="sec">연결된 약속</div><div class="rel">' + members.map(function (m) {
+          return '<button type="button" data-goto="' + esc(m.id) + '"><span class="t">' + CAT[m.item.cat].emoji + ' ' + esc(m.item.title) + '</span>' +
+            '<span class="why">' + (m.item.done ? '완료' : '남은 약속') + (m.item.place ? ' · ' + esc(m.item.place) : '') + '</span></button>';
+        }).join('') + '</div>';
+    }
+    panel.innerHTML = html;
+    panel.hidden = false;
+    panel.scrollTop = 0;
+    document.getElementById('aiBtn').setAttribute('aria-pressed', 'false');
+    hideHint();
+  }
+
+  function showInsights() {
+    panelMode = 'ai';
+    var items = allItems.filter(function (it) { return catFilter[it.cat]; });
+    var open = items.filter(function (it) { return !it.done; });
+    var done = items.filter(function (it) { return it.done; });
+    var itemNodes = nodes.filter(function (n) { return n.kind === 'item'; });
+    var ins = [];
+
+    // 1. 가장 많이 이어진 약속
+    var top = itemNodes.slice().sort(function (a, b) { return b.deg - a.deg; })[0];
+    if (top) ins.push({ ic: '🕸️', html: '가장 많이 이어진 약속은 <b>' + esc(top.item.title) + '</b>', sub: '연결 ' + top.deg + '개 · 다른 약속들과 공통점이 제일 많아요', go: top.id });
+
+    // 2. 같이 하면 좋은 조합
+    var shown = {};
+    itemNodes.forEach(function (n) { shown[n.item.id] = n.item; });
+    var best = pairs.filter(function (p) { return shown[p.a] && shown[p.b] && !shown[p.a].done && !shown[p.b].done; })
+      .sort(function (a, b) { return b.s - a.s; })[0];
+    if (best && best.s >= 0.3) {
+      ins.push({ ic: '💞', html: '<b>' + esc(shown[best.a].title) + '</b>와(과) <b>' + esc(shown[best.b].title) + '</b>는 ' + Math.round(best.s * 100) + '% 닮았어요',
+        sub: best.why.join(' · ') + ' — 하루에 묶어서 해보면 어때요?', go: 'i:' + best.a });
+    }
+
+    // 3. 가장 큰 공통점
+    var hubs = nodes.filter(function (n) { return n.kind === 'word' || n.kind === 'region'; }).sort(function (a, b) { return b.count - a.count; });
+    if (hubs[0]) ins.push({ ic: hubs[0].kind === 'region' ? '📍' : '🔖', html: '가장 큰 묶음은 <b>' + esc(hubs[0].label.replace(/^📍 /, '')) + '</b>', sub: '약속 ' + hubs[0].count + '개가 이 공통점으로 이어져 있어요', go: hubs[0].id });
+
+    // 4. 카테고리 비중
+    var catCount = CATS.map(function (c) { return { c: c, n: open.filter(function (it) { return it.cat === c.id; }).length }; })
+      .sort(function (a, b) { return b.n - a.n; });
+    if (open.length && catCount[0].n) {
+      var lack = catCount.filter(function (x) { return x.n === 0; }).map(function (x) { return x.c.label; });
+      ins.push({ ic: catCount[0].c.emoji, html: '남은 약속의 <b>' + Math.round(catCount[0].n / open.length * 100) + '%</b>가 ' + esc(catCount[0].c.label) + '예요',
+        sub: lack.length ? '아직 ' + lack.join(', ') + ' 약속은 없어요' : '네 가지 카테고리에 골고루 있어요' });
+    }
+
+    // 5. 외딴 약속
+    var lonely = itemNodes.filter(function (n) {
+      return !links.some(function (l) { return l.kind === 'rel' && (l.source === n || l.target === n); });
+    });
+    if (lonely.length) ins.push({ ic: '🌱', html: '<b>' + esc(lonely[0].item.title) + '</b>' + (lonely.length > 1 ? ' 외 ' + (lonely.length - 1) + '개는' : '은(는)') + ' 아직 혼자예요', sub: '비슷한 약속을 더 적으면 네트워크가 촘촘해져요', go: lonely[0].id });
+
+    var rate = items.length ? Math.round(done.length / items.length * 100) : 0;
+    var html = '<button class="x" type="button" data-close aria-label="닫기">×</button>' +
+      '<div class="kicker">✦ 약속 분석</div><div class="ptitle">우리 약속은 이렇게 이어져 있어요</div>' +
+      '<div class="stats"><div class="stat"><b>' + open.length + '</b><span>남은 약속</span></div>' +
+      '<div class="stat"><b>' + done.length + '</b><span>지킨 약속</span></div>' +
+      '<div class="stat"><b>' + rate + '%</b><span>달성률</span></div></div>' +
+      '<div class="insights">' + (ins.length ? ins.map(function (x) {
+        return '<div class="ins"' + (x.go ? ' data-goto="' + esc(x.go) + '" style="cursor:pointer"' : '') + '><span class="ic">' + x.ic + '</span><div>' + x.html + (x.sub ? '<small>' + esc(x.sub) + '</small>' : '') + '</div></div>';
+      }).join('') : '<div class="pmeta">약속이 더 쌓이면 분석해 드릴게요.</div>') + '</div>';
+    panel.innerHTML = html;
+    panel.hidden = false;
+    panel.scrollTop = 0;
+    document.getElementById('aiBtn').setAttribute('aria-pressed', 'true');
+    selected = null;
+    hideHint();
+  }
+
+  function closePanel() {
+    panel.hidden = true;
+    panelMode = null;
+    selected = null;
+    document.getElementById('aiBtn').setAttribute('aria-pressed', 'false');
+  }
+
+  function hideHint() { document.getElementById('hint').style.opacity = 0; }
+
+  panel.addEventListener('click', function (e) {
+    if (e.target.closest('[data-close]')) { closePanel(); return; }
+    var g = e.target.closest('[data-goto]');
+    if (g) {
+      var n = nodeById[g.getAttribute('data-goto')];
+      if (n) { selectNode(n); focusOn(n); }
+    }
+  });
+
+  document.getElementById('aiBtn').addEventListener('click', function () {
+    if (panelMode === 'ai') closePanel(); else showInsights();
+  });
+  document.getElementById('doneBtn').addEventListener('click', function () {
+    showDone = !showDone;
+    this.setAttribute('aria-pressed', String(showDone));
+    build();
+    if (panelMode === 'ai') showInsights();
+    else if (panelMode === 'node' && selected) showNodePanel(selected);
+    else if (panelMode === 'node') closePanel();
+  });
+  document.getElementById('legend').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-cat]');
+    if (!b) return;
+    var id = b.getAttribute('data-cat');
+    catFilter[id] = !catFilter[id];
+    if (!CATS.some(function (c) { return catFilter[c.id]; })) catFilter[id] = true;
+    build();
+    if (panelMode === 'ai') showInsights();
+    else if (panelMode === 'node' && selected) showNodePanel(selected);
+    else if (panelMode === 'node') closePanel();
+  });
+  document.getElementById('backBtn').addEventListener('click', function (e) {
+    e.preventDefault();
+    document.body.classList.add('leaving');
+    var href = this.getAttribute('href');
+    setTimeout(function () { location.href = href; }, 220);
+  });
+  window.addEventListener('pageshow', function () { document.body.classList.remove('leaving'); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closePanel(); });
+
+  // ---------- 물리 시뮬레이션 ----------
+  var alpha = 1;
+  function reheat(a) { alpha = Math.max(alpha, a); }
+
+  function step() {
+    if (alpha < 0.004) return;
+    var n = nodes.length, i, j, a, b;
+    // 반발력
+    for (i = 0; i < n; i++) {
+      a = nodes[i];
+      for (j = i + 1; j < n; j++) {
+        b = nodes[j];
+        var dx = b.x - a.x, dy = b.y - a.y, d2 = dx * dx + dy * dy;
+        if (d2 < 0.01) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d2 = 0.5; }
+        if (d2 > 360000) continue;
+        var d = Math.sqrt(d2);
+        var f = (a.kind === 'item' && b.kind === 'item' ? 2600 : 3200) * alpha / d2;
+        // 글자가 겹치지 않도록 가까우면 더 세게 밀어냄
+        var minD = a.r + b.r + 46;
+        if (d < minD) f += (minD - d) * 0.08 * Math.max(alpha, 0.2);
+        var fx = dx / d * f, fy = dy / d * f;
+        // 이름표(가로로 긴 상자)끼리 겹치면 위아래로 벌림
+        var ox = (a.lw + b.lw) / 2 + 6 - Math.abs(dx), oy = 30 - Math.abs(dy);
+        if (ox > 0 && oy > 0) {
+          var push = Math.min(ox, oy) * 0.12 * Math.max(alpha, 0.35);
+          fy += (dy >= 0 ? 1 : -1) * push;
+        }
+        a.vx -= fx; a.vy -= fy; b.vx += fx; b.vy += fy;
+      }
+    }
+    // 스프링
+    links.forEach(function (l) {
+      var s = l.source, t = l.target;
+      var dx = t.x - s.x, dy = t.y - s.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
+      var rest = l.kind === 'rel' ? 175 - l.w * 85 : (s.kind === 'cat' ? 135 : 105);
+      var k = (l.kind === 'rel' ? 0.02 + l.w * 0.05 : 0.045) * alpha;
+      var f = (d - rest) * k;
+      var fx = dx / d * f, fy = dy / d * f;
+      s.vx += fx; s.vy += fy; t.vx -= fx; t.vy -= fy;
+    });
+    // 중심으로 끌기 + 감쇠
+    nodes.forEach(function (p) {
+      // 세로로 긴 휴대폰 화면이면 가로로 더 세게 당겨서 화면 모양에 맞춤
+      var aspect = H && W ? Math.max(0.6, Math.min(2.4, H / W)) : 1;
+      p.vx -= p.x * 0.004 * aspect * alpha;
+      p.vy -= p.y * 0.004 / aspect * alpha;
+      if (p === dragNode) { p.vx = 0; p.vy = 0; return; }
+      p.vx *= 0.82; p.vy *= 0.82;
+      p.x += p.vx; p.y += p.vy;
+    });
+    alpha *= 0.98;
+  }
+
+  // 화면 안에 네트워크 전체가 들어오도록 (사용자가 직접 움직이기 전까지)
+  var userMoved = false;
+  function fitView(instant) {
+    if (!nodes.length || !W) return;
+    var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    nodes.forEach(function (n) {
+      var half = Math.max(n.r, n.lw / 2 * 0.9);
+      minX = Math.min(minX, n.x - half); maxX = Math.max(maxX, n.x + half);
+      minY = Math.min(minY, n.y - n.r - 10); maxY = Math.max(maxY, n.y + n.r + 30);
+    });
+    var top = 150, bottom = 50, side = 12;
+    var k = Math.min((W - side * 2) / (maxX - minX), (H - top - bottom) / (maxY - minY));
+    k = Math.max(0.35, Math.min(1.4, k));
+    var cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+    var tx = -cx * k, ty = -cy * k + (top - bottom) / 2;
+    var e = instant ? 1 : 0.12;
+    view.k += (k - view.k) * e;
+    view.x += (tx - view.x) * e;
+    view.y += (ty - view.y) * e;
+  }
+
+  // ---------- 그리기 ----------
+  var canvas = document.getElementById('net');
+  var ctx = canvas.getContext('2d');
+  var W = 0, H = 0, DPR = 1;
+  var view = { x: 0, y: 0, k: 1 };
+  var selected = null, hover = null, t0 = performance.now();
+  var FONT = getComputedStyle(document.body).fontFamily;
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { FONT = getComputedStyle(document.body).fontFamily; });
+
+  function resize() {
+    DPR = Math.min(2.5, window.devicePixelRatio || 1);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+  view.k = Math.min(1.15, Math.max(0.7, Math.min(W, H) / 420));
+
+  function toScreen(p) { return { x: W / 2 + view.x + p.x * view.k, y: H / 2 + view.y + p.y * view.k }; }
+  function toWorld(x, y) { return { x: (x - W / 2 - view.x) / view.k, y: (y - H / 2 - view.y) / view.k }; }
+
+  function neighborSet(n) {
+    var set = {};
+    if (!n) return null;
+    set[n.id] = 1;
+    links.forEach(function (l) {
+      if (l.source === n) set[l.target.id] = 1;
+      if (l.target === n) set[l.source.id] = 1;
+    });
+    return set;
+  }
+
+  function hexA(hex, a) {
+    var v = parseInt(hex.slice(1), 16);
+    return 'rgba(' + (v >> 16 & 255) + ',' + (v >> 8 & 255) + ',' + (v & 255) + ',' + a + ')';
+  }
+
+  function draw(now) {
+    step();
+    if (!userMoved && alpha < 0.5) fitView(false);
+    var time = (now - t0) / 1000;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    // 배경 별
+    ctx.fillStyle = 'rgba(255,255,255,.035)';
+    for (var s = 0; s < 60; s++) {
+      var sx = (s * 97.3 + view.x * 0.15) % W, sy = (s * 53.7 + view.y * 0.15) % H;
+      ctx.fillRect((sx + W) % W, (sy + H) % H, 1.2, 1.2);
+    }
+
+    ctx.save();
+    ctx.translate(W / 2 + view.x, H / 2 + view.y);
+    ctx.scale(view.k, view.k);
+
+    var focus = selected || hover;
+    var nb = neighborSet(focus);
+
+    // 선
+    links.forEach(function (l) {
+      var on = nb && (l.source === focus || l.target === focus);
+      var dim = nb && !on;
+      var base = l.kind === 'rel' ? 0.12 + l.w * 0.45 : 0.16;
+      var col = l.kind === 'rel' ? '#ffffff' : (l.source.kind === 'item' ? l.target.color : l.source.color);
+      ctx.strokeStyle = hexA(on ? (focus.kind === 'item' ? focus.color : focus.color) : col, dim ? 0.04 : on ? Math.min(0.95, base + 0.35) : base);
+      ctx.lineWidth = (l.kind === 'rel' ? 0.6 + l.w * 2.2 : 0.8) / Math.sqrt(view.k);
+      if (l.kind === 'hub') ctx.setLineDash([3, 3]); else ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(l.source.x, l.source.y);
+      ctx.lineTo(l.target.x, l.target.y);
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+
+    // 선택 시 흐르는 빛
+    if (focus) {
+      links.forEach(function (l) {
+        if (l.source !== focus && l.target !== focus) return;
+        var from = l.source === focus ? l.source : l.target, to = l.source === focus ? l.target : l.source;
+        var p = (time * 0.6 + (l.w || 0.5)) % 1;
+        var x = from.x + (to.x - from.x) * p, y = from.y + (to.y - from.y) * p;
+        ctx.fillStyle = hexA(focus.color, 0.9);
+        ctx.beginPath(); ctx.arc(x, y, 1.8 / Math.sqrt(view.k), 0, Math.PI * 2); ctx.fill();
+      });
+    }
+
+    // 점
+    nodes.forEach(function (n) {
+      var dim = nb && !nb[n.id];
+      var pulse = n === focus ? 1 + Math.sin(time * 4) * 0.08 : 1;
+      var r = n.r * pulse;
+      ctx.globalAlpha = dim ? 0.18 : 1;
+      if (n.kind === 'item') {
+        var g = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, r * 3.2);
+        g.addColorStop(0, hexA(n.color, n.item.done ? 0.18 : 0.38));
+        g.addColorStop(1, hexA(n.color, 0));
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(n.x, n.y, r * 3.2, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = n.item.done ? hexA(n.color, 0.35) : n.color;
+        ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, Math.PI * 2); ctx.fill();
+        if (n.item.done) {
+          ctx.strokeStyle = n.color; ctx.lineWidth = 1.2;
+          ctx.beginPath(); ctx.arc(n.x, n.y, r + 2.5, 0, Math.PI * 2); ctx.stroke();
+        }
+      } else {
+        ctx.fillStyle = '#1a121d';
+        ctx.strokeStyle = hexA(n.color, 0.9);
+        ctx.lineWidth = n.kind === 'cat' ? 2.2 : 1.4;
+        ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        if (n.kind === 'cat') {
+          ctx.fillStyle = hexA(n.color, 0.85);
+          ctx.beginPath(); ctx.arc(n.x, n.y, r * 0.38, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      if (n === selected) {
+        ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(n.x, n.y, r + 6, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    });
+
+    // 글자
+    var fs = 12 / view.k;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    var many = nodes.length > 40;
+    nodes.forEach(function (n) {
+      var dim = nb && !nb[n.id];
+      var showLabel = n.kind !== 'item' || !many || view.k > 1.3 || (nb && nb[n.id]);
+      if (!showLabel) return;
+      var text = n.label;
+      if (n.kind === 'item' && text.length > 14 && !(nb && nb[n.id])) text = text.slice(0, 13) + '…';
+      ctx.font = (n.kind === 'cat' ? '600 ' : n.kind === 'item' ? '500 ' : '400 ') + (n.kind === 'cat' ? fs * 1.08 : fs * 0.95) + 'px ' + FONT;
+      ctx.globalAlpha = dim ? 0.15 : n.kind === 'item' ? (n.item.done ? 0.6 : 0.95) : 0.85;
+      ctx.lineWidth = 3 / view.k;
+      ctx.strokeStyle = 'rgba(18,13,20,.85)';
+      ctx.strokeText(text, n.x, n.y + n.r + 5 / view.k);
+      ctx.fillStyle = n.kind === 'item' ? '#f3eaf0' : n.color;
+      ctx.fillText(text, n.x, n.y + n.r + 5 / view.k);
+      ctx.globalAlpha = 1;
+    });
+
+    ctx.restore();
+    requestAnimationFrame(draw);
+  }
+
+  // ---------- 조작: 드래그 / 확대 / 탭 ----------
+  var pointers = {}, dragNode = null, panStart = null, pinch = null, downAt = null, moved = false;
+
+  function hit(x, y) {
+    var w = toWorld(x, y), best = null, bd = Infinity;
+    nodes.forEach(function (n) {
+      var dx = n.x - w.x, dy = n.y - w.y, d = Math.sqrt(dx * dx + dy * dy);
+      var reach = n.r + 12 / view.k;
+      if (d < reach && d < bd) { bd = d; best = n; }
+    });
+    return best;
+  }
+
+  canvas.addEventListener('pointerdown', function (e) {
+    canvas.setPointerCapture(e.pointerId);
+    pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = Object.keys(pointers);
+    if (ids.length === 2) {
+      var p1 = pointers[ids[0]], p2 = pointers[ids[1]];
+      userMoved = true;
+      pinch = { d: Math.hypot(p1.x - p2.x, p1.y - p2.y), k: view.k, cx: (p1.x + p2.x) / 2, cy: (p1.y + p2.y) / 2, vx: view.x, vy: view.y };
+      dragNode = null; panStart = null;
+      return;
+    }
+    downAt = { x: e.clientX, y: e.clientY };
+    moved = false;
+    userMoved = true;
+    var n = hit(e.clientX, e.clientY);
+    if (n) { dragNode = n; reheat(0.3); }
+    else panStart = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y };
+    canvas.classList.add('dragging');
+  });
+
+  canvas.addEventListener('pointermove', function (e) {
+    if (!pointers[e.pointerId]) {
+      if (e.pointerType === 'mouse') { var h = hit(e.clientX, e.clientY); if (h !== hover) hover = h; canvas.style.cursor = h ? 'pointer' : ''; }
+      return;
+    }
+    pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = Object.keys(pointers);
+    if (pinch && ids.length === 2) {
+      var p1 = pointers[ids[0]], p2 = pointers[ids[1]];
+      var d = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+      zoomAt(pinch.cx, pinch.cy, Math.max(0.3, Math.min(4, pinch.k * d / pinch.d)), pinch);
+      return;
+    }
+    if (downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 6) moved = true;
+    if (dragNode && moved) {
+      var w = toWorld(e.clientX, e.clientY);
+      dragNode.x = w.x; dragNode.y = w.y;
+      reheat(0.25);
+    } else if (panStart) {
+      view.x = panStart.vx + (e.clientX - panStart.x);
+      view.y = panStart.vy + (e.clientY - panStart.y);
+    }
+  });
+
+  function endPointer(e) {
+    if (!pointers[e.pointerId]) return;
+    delete pointers[e.pointerId];
+    if (pinch) { if (!Object.keys(pointers).length) pinch = null; return; }
+    if (!moved) {
+      var n = hit(e.clientX, e.clientY);
+      if (n) { selectNode(n); }
+      else if (panelMode === 'node') closePanel();
+    }
+    dragNode = null; panStart = null; downAt = null;
+    canvas.classList.remove('dragging');
+  }
+  canvas.addEventListener('pointerup', endPointer);
+  canvas.addEventListener('pointercancel', endPointer);
+  canvas.addEventListener('pointerleave', function () { hover = null; });
+
+  function zoomAt(cx, cy, k, base) {
+    base = base || { k: view.k, vx: view.x, vy: view.y };
+    var wx = (cx - W / 2 - base.vx) / base.k, wy = (cy - H / 2 - base.vy) / base.k;
+    view.k = k;
+    view.x = cx - W / 2 - wx * k;
+    view.y = cy - H / 2 - wy * k;
+  }
+  canvas.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    userMoved = true;
+    var k = Math.max(0.3, Math.min(4, view.k * Math.exp(-e.deltaY * 0.0015)));
+    zoomAt(e.clientX, e.clientY, k);
+  }, { passive: false });
+
+  function selectNode(n) {
+    selected = n;
+    showNodePanel(n);
+  }
+
+  // 선택한 노드가 패널에 가리지 않게 화면 위쪽으로 부드럽게 이동
+  function focusOn(n) {
+    userMoved = true;
+    var targetX = -n.x * view.k, targetY = -n.y * view.k - H * 0.18;
+    var sx = view.x, sy = view.y, start = performance.now();
+    function anim(t) {
+      var p = Math.min(1, (t - start) / 450), e = 1 - Math.pow(1 - p, 3);
+      view.x = sx + (targetX - sx) * e;
+      view.y = sy + (targetY - sy) * e;
+      if (p < 1) requestAnimationFrame(anim);
+    }
+    requestAnimationFrame(anim);
+  }
+
+  build();
+  requestAnimationFrame(draw);
+  setTimeout(hideHint, 6000);
+
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    navigator.serviceWorker.register('/sw.js').catch(function () {});
+  }
+})();
+</script>
+</body>
+</html>
