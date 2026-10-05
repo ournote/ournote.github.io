@@ -114,7 +114,7 @@
   .stage { margin-top: 6px; }
   .ptitles {
     position: relative;
-    height: 36px;
+    height: 30px;
     margin: 0 2px 8px;
     pointer-events: none;
   }
@@ -129,9 +129,15 @@
     will-change: opacity, transform;
   }
   .pt .name {
+    display: inline-block;
+    padding: 4px 13px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--paper-60);
     font-family: var(--serif);
     font-weight: 700;
-    font-size: 18px;
+    font-size: 13px;
+    line-height: 1.5;
     color: var(--plum);
     white-space: nowrap;
   }
