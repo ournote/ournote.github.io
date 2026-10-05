@@ -443,6 +443,10 @@
     70% { box-shadow: 0 0 0 14px rgba(59, 130, 246, 0); }
     100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
   }
+  .sortrow { display: flex; justify-content: flex-end; margin: -2px 0 8px; }
+  .sortchip { border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 999px; padding: 3px 10px; font-size: 12px; cursor: pointer; }
+  .sortchip[aria-pressed="true"] { border-color: var(--rose); background: var(--rose-soft); color: var(--rose); font-weight: 600; }
+  .opt .dist { color: var(--rose); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -920,6 +924,25 @@
 
 
   // ---------- 현위치 (카카오 웹 지도엔 기본 버튼이 없어 직접 만듦) ----------
+  // 내 위치 (검색을 가까운 순으로 정렬할 때도 씀). 5분 안에 받은 위치는 다시 묻지 않음
+  var myPos = null;
+  function getMyPos(cb) {
+    if (myPos && Date.now() - myPos.t < 300000) { cb(myPos); return; }
+    if (!navigator.geolocation) { cb(null); return; }
+    var done = false;
+    var timer = setTimeout(function () { if (!done) { done = true; cb(null); } }, 6000);
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      if (done) return;
+      done = true; clearTimeout(timer);
+      myPos = { lat: pos.coords.latitude, lng: pos.coords.longitude, t: Date.now() };
+      cb(myPos);
+    }, function () {
+      if (done) return;
+      done = true; clearTimeout(timer);
+      cb(null);
+    }, { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 });
+  }
+
   function setupLocate(getMap, notify) {
     var btn = document.getElementById('locBtn');
     var me = null, ring = null;
@@ -929,6 +952,7 @@
       if (!navigator.geolocation) { notify('이 기기에서는 현위치를 쓸 수 없어요'); return; }
       btn.classList.add('busy');
       navigator.geolocation.getCurrentPosition(function (pos) {
+        myPos = { lat: pos.coords.latitude, lng: pos.coords.longitude, t: Date.now() };
         btn.classList.remove('busy');
         btn.classList.add('on');
         var k = window.kakao;
@@ -1082,6 +1106,10 @@
       .sort(function (a, b) { return (a.done === true) - (b.done === true) || (Number(a.createdAt) || 0) - (Number(b.createdAt) || 0); });
   }
 
+  var nearFirst = true;
+  try { nearFirst = localStorage.getItem('ournote:nearFirst') !== '0'; } catch (e) { nearFirst = true; }
+  function fmtDist(m) { return m < 1000 ? Math.round(m) + 'm' : (m / 1000).toFixed(m < 10000 ? 1 : 0) + 'km'; }
+
   function openAdd() {
     var color = nextColor();
     var choice = null;
@@ -1092,7 +1120,9 @@
       '<div class="seg"><button type="button" data-tab="search" aria-pressed="true">장소 검색</button>' +
       '<button type="button" data-tab="mine" aria-pressed="false">내 약속에서</button></div>' +
       '<div data-pane="search"><div class="search"><input type="search" id="q" placeholder="가게 이름, 동네, 주소" enterkeyhint="search" autocomplete="off">' +
-      '<button type="button" class="btn" data-act="search">검색</button></div><div class="pick" data-list="search"><div class="hint">검색한 장소를 고르거나, 이름만 적고 추가해도 돼요.</div></div></div>' +
+      '<button type="button" class="btn" data-act="search">검색</button></div>' +
+      '<div class="sortrow"><button type="button" class="sortchip" data-near aria-pressed="' + nearFirst + '">📍 가까운 순</button></div>' +
+      '<div class="pick" data-list="search"><div class="hint">검색한 장소를 고르거나, 이름만 적고 추가해도 돼요.</div></div></div>' +
       '<div data-pane="mine" hidden><div class="pick" data-list="mine"></div></div>' +
       clockBlock() +
       '<div class="acts"><button type="button" class="btn" data-act="close">닫기</button>' +
@@ -1117,6 +1147,15 @@
         if (!q) return;
         if (!kakaoReady) { box.innerHTML = '<div class="hint">지도를 불러오지 못해 검색할 수 없어요. 이름만 적고 추가할 수 있어요.</div>'; return; }
         box.innerHTML = '<div class="hint">찾는 중…</div>';
+        if (!nearFirst) { runSearch(q, box, null); return; }
+        getMyPos(function (pos) {
+          if (!pos) toast('위치를 못 받아서 기본 순서로 보여줘요');
+          runSearch(q, box, pos);
+        });
+      }
+      function runSearch(q, box, pos) {
+        var k = window.kakao;
+        var opts = pos ? { location: new k.maps.LatLng(pos.lat, pos.lng), sort: k.maps.services.SortBy.DISTANCE } : {};
         places.keywordSearch(q, function (r, st) {
           if (st !== window.kakao.maps.services.Status.OK || !r.length) {
             searchResults = [];
@@ -1126,12 +1165,21 @@
           searchResults = r.slice(0, 12);
           box.innerHTML = searchResults.map(function (p, i) {
             return '<button type="button" class="opt" data-res="' + i + '"><div class="t">' + esc(p.place_name) + '</div>' +
-              '<div class="s">' + esc(p.road_address_name || p.address_name || '') + (p.category_group_name ? ' · ' + esc(p.category_group_name) : '') + '</div></button>';
+              '<div class="s">' + (p.distance ? '<b class="dist">' + fmtDist(Number(p.distance)) + '</b> · ' : '') +
+              esc(p.road_address_name || p.address_name || '') + (p.category_group_name ? ' · ' + esc(p.category_group_name) : '') + '</div></button>';
           }).join('');
-        });
+        }, opts);
       }
 
       bs.addEventListener('click', function (e) {
+        var nb = e.target.closest('[data-near]');
+        if (nb) {
+          nearFirst = !nearFirst;
+          nb.setAttribute('aria-pressed', String(nearFirst));
+          try { localStorage.setItem('ournote:nearFirst', nearFirst ? '1' : '0'); } catch (err) { /* 없어도 됨 */ }
+          if (bs.querySelector('#q').value.trim()) doSearch();
+          return;
+        }
         var t = e.target.closest('[data-tab]');
         if (t) {
           tab = t.getAttribute('data-tab');
