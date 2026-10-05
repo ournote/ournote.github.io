@@ -447,6 +447,13 @@
   .sortchip { border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 999px; padding: 3px 10px; font-size: 12px; cursor: pointer; }
   .sortchip[aria-pressed="true"] { border-color: var(--rose); background: var(--rose-soft); color: var(--rose); font-weight: 600; }
   .opt .dist { color: var(--rose); font-weight: 600; }
+  .addrline { font-size: 13.5px; color: var(--ink); margin: -4px 0 8px; line-height: 1.6; overflow-wrap: anywhere; }
+  .addrline a { color: var(--rose); text-decoration: none; margin-left: 2px; }
+  .addrline em { color: var(--muted); font-style: normal; font-size: 12px; }
+  .noaddr { color: var(--muted); }
+  .stop .noaddr { color: var(--rose); opacity: .8; }
+  .linkish { border: 0; background: none; color: var(--rose); font-size: 13px; font-weight: 600; padding: 0 2px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+  .addrbox { margin-bottom: 4px; }
 </style>
 </head>
 <body>
@@ -814,7 +821,7 @@
       html += '<button type="button" class="stop" data-id="' + esc(st.id) + '">' +
         '<span class="num" style="background:' + esc(st.color) + '">' + (i + 1) + '</span>' +
         '<span class="tx"><span class="tt">' + esc(st.title) + '</span>' +
-        (st.place ? '<span class="mm" style="display:block">📍 ' + esc(st.place) + '</span>' : '') + '</span>' +
+        (st.place ? '<span class="mm" style="display:block">📍 ' + esc(st.place) + '</span>' : '<span class="mm noaddr" style="display:block">📍 주소 없음 · 눌러서 추가</span>') + '</span>' +
         (hasTime(st) ? '<span class="tm">' + hm(st.start) + '–' + hm(st.end) + '<small>' + durText(span(st.start, st.end)) + '</small></span>' : '') +
         '</button>';
     });
@@ -1244,23 +1251,93 @@
   document.getElementById('addBtn').addEventListener('click', openAdd);
 
   // ---------- 장소 하나: 시간 바꾸기·빼기 ----------
+  // 장소 검색(가까운 순 설정 따름). 이름으로 못 찾으면 주소로도 한 번 더 찾음
+  function searchPlaces(q, cb) {
+    if (!kakaoReady) { cb(null); return; }
+    function run(pos) {
+      var k = window.kakao;
+      var opts = pos ? { location: new k.maps.LatLng(pos.lat, pos.lng), sort: k.maps.services.SortBy.DISTANCE } : {};
+      places.keywordSearch(q, function (r, st) {
+        if (st === k.maps.services.Status.OK && r.length) { cb(r.slice(0, 12)); return; }
+        geocoder.addressSearch(q, function (r2, st2) {
+          if (st2 === k.maps.services.Status.OK && r2.length) {
+            cb(r2.slice(0, 5).map(function (x) {
+              var road = x.road_address && x.road_address.address_name;
+              return { place_name: road || x.address_name || q, road_address_name: road || '', address_name: x.address_name || q, x: x.x, y: x.y };
+            }));
+          } else cb([]);
+        });
+      }, opts);
+    }
+    if (!nearFirst) run(null);
+    else getMyPos(run);
+  }
+
+  // ---------- 장소 하나: 주소 추가·바꾸기, 시간 바꾸기, 빼기 ----------
   function openStop(st) {
     var time = { start: hasTime(st) ? st.start : null, end: hasTime(st) ? st.end : null };
     var others = dayStops().filter(function (s) { return s !== st; });
+    var pending = null; // 새로 고른 주소
+    var noPlace = !st.place || st.lat == null;
     var html = '<h2><span class="num" style="background:' + esc(st.color) + ';display:inline-grid;vertical-align:3px;margin-right:6px">' + (ordered().indexOf(st) + 1) + '</span>' + esc(st.title) + '</h2>' +
-      (st.place ? '<div class="hint">📍 ' + esc(st.place) + ' <a href="https://map.naver.com/p/search/' + encodeURIComponent(st.place) + '" target="_blank" rel="noopener" style="color:var(--rose);text-decoration:none">지도</a></div>' : '') +
+      '<div class="addrline" data-addrline>' +
+        (st.place
+          ? '<span>📍 ' + esc(st.place) + (st.lat == null ? ' <em>(지도에서 못 찾음)</em>' : '') + '</span>' +
+            ' <a href="https://map.naver.com/p/search/' + encodeURIComponent(st.place) + '" target="_blank" rel="noopener">지도</a>'
+          : '<span class="noaddr">지도에 표시할 주소가 없어요</span>') +
+        ' <button type="button" class="linkish" data-act="addr">' + (st.place ? '주소 바꾸기' : '주소 추가') + '</button>' +
+      '</div>' +
+      '<div class="addrbox" data-addrbox' + (noPlace ? '' : ' hidden') + '>' +
+        '<div class="search"><input type="search" id="aq" placeholder="만날 곳 이름이나 주소 (예: 강남역 11번 출구)" enterkeyhint="search" autocomplete="off">' +
+        '<button type="button" class="btn" data-act="asearch">검색</button></div>' +
+        '<div class="pick" data-alist><div class="hint">검색해서 하나 고르면 지도에 이 장소로 표시돼요.</div></div>' +
+      '</div>' +
       clockBlock() +
       '<div class="acts"><button type="button" class="btn del" data-act="del">빼기</button><span class="sp"></span>' +
       '<button type="button" class="btn" data-act="close">닫기</button>' +
       '<button type="button" class="btn pri" data-act="save">저장</button></div>';
     openSheet(html, function (bs) {
       var clock = makeClock(bs.querySelector('[data-clock]'), st.color, others, st, function (v) { time = v; });
+      var results = [];
+      function doAddrSearch() {
+        var q = bs.querySelector('#aq').value.trim();
+        var box = bs.querySelector('[data-alist]');
+        if (!q) return;
+        if (!kakaoReady) { box.innerHTML = '<div class="hint">지도를 불러오지 못해 검색할 수 없어요.</div>'; return; }
+        box.innerHTML = '<div class="hint">찾는 중…</div>';
+        searchPlaces(q, function (r) {
+          results = r || [];
+          if (!results.length) { box.innerHTML = '<div class="hint">찾지 못했어요. 다른 이름이나 도로명 주소로 찾아보세요.</div>'; return; }
+          box.innerHTML = results.map(function (p, i) {
+            return '<button type="button" class="opt" data-ares="' + i + '"><div class="t">' + esc(p.place_name) + '</div>' +
+              '<div class="s">' + (p.distance ? '<b class="dist">' + fmtDist(Number(p.distance)) + '</b> · ' : '') +
+              esc(p.road_address_name || p.address_name || '') + '</div></button>';
+          }).join('');
+        });
+      }
+      bs.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && e.target.id === 'aq' && !e.isComposing) { e.preventDefault(); doAddrSearch(); }
+      });
+      if (noPlace) setTimeout(function () { bs.querySelector('#aq').focus(); }, 80);
       bs.addEventListener('click', function (e) {
+        var r = e.target.closest('[data-ares]');
+        if (r) {
+          var p = results[Number(r.getAttribute('data-ares'))];
+          pending = { place: p.road_address_name || p.address_name || p.place_name, name: p.place_name, lat: Number(p.y), lng: Number(p.x) };
+          bs.querySelectorAll('[data-ares]').forEach(function (b) { b.setAttribute('aria-pressed', String(b === r)); });
+          return;
+        }
         var a = e.target.closest('[data-act]');
         if (!a) return;
         var act = a.getAttribute('data-act');
         if (act === 'close') closeSheet();
         else if (act === 'clear-time') clock.clear();
+        else if (act === 'addr') {
+          var box = bs.querySelector('[data-addrbox]');
+          box.hidden = !box.hidden;
+          if (!box.hidden) setTimeout(function () { bs.querySelector('#aq').focus(); }, 50);
+        }
+        else if (act === 'asearch') doAddrSearch();
         else if (act === 'del') {
           trip.stops = trip.stops.filter(function (s) { return s !== st; });
           save();
@@ -1270,9 +1347,17 @@
         } else if (act === 'save') {
           if (time.start != null && time.end != null && time.start !== time.end) { st.start = time.start; st.end = time.end; }
           else { delete st.start; delete st.end; }
+          var moved = false;
+          if (pending) {
+            st.place = pending.place === pending.name ? pending.place : pending.name + ' · ' + pending.place;
+            st.lat = pending.lat;
+            st.lng = pending.lng;
+            moved = true;
+          }
           save();
           closeSheet();
-          renderAll(false);
+          renderAll(moved);
+          if (moved) toast('지도에 표시했어요');
         }
       });
     });
