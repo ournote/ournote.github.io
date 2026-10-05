@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>우리 약속 노트</title>
 <meta name="description" content="같이 하기로 한 것, 해주기로 한 것">
 <meta name="theme-color" content="#b5476a">
@@ -52,7 +52,7 @@
 
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  html { -webkit-text-size-adjust: 100%; }
+  html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }
   body {
     margin: 0;
     background: var(--bg);
@@ -467,6 +467,9 @@
 <script>
 (function () {
   'use strict';
+
+  // iOS 사파리는 user-scalable=no를 무시할 때가 있어 두 손가락 확대도 직접 막음
+  document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
 
   var STORAGE_KEY = 'ournote:items';
 

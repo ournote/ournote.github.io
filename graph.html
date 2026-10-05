@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>약속 네트워크 · 우리 약속 노트</title>
 <meta name="theme-color" content="#120d14">
 <link rel="manifest" href="/manifest.webmanifest">
@@ -32,6 +32,7 @@
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
   html, body { height: 100%; }
+  html { touch-action: manipulation; }
   body {
     margin: 0;
     overflow: hidden;
@@ -251,6 +252,9 @@
 <script>
 (function () {
   'use strict';
+
+  // iOS 사파리는 user-scalable=no를 무시할 때가 있어 두 손가락 확대도 직접 막음
+  document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
 
   var STORAGE_KEY = 'ournote:items';
   var GEO_KEY = 'ournote:geo';
