@@ -1256,19 +1256,47 @@
       if (ang < 0) ang += Math.PI * 2;
       return Math.round(ang / (Math.PI * 2) * 48) % 48 * 30;
     }
-    var dragging = false;
+    // 같은 날 다른 장소 시간과 겹치지 않게
+    var occ = others.filter(hasTime).map(function (o) { return { s: o.start, len: span(o.start, o.end) }; });
+    function occupiedAt(mm) { return occ.find(function (o) { return span(o.s, mm) < o.len; }); }
+    function freeStart(mm) {
+      for (var i = 0; i <= occ.length; i++) {
+        var o = occupiedAt(mm);
+        if (!o) return mm;
+        mm = (o.s + o.len) % 1440; // 그 조각이 끝나는 자리부터
+      }
+      return null; // 빈 시간이 없음
+    }
+    function gapFrom(mm) {
+      var g = 1440;
+      occ.forEach(function (o) { var d = span(mm, o.s); if (d > 0 && d < g) g = d; });
+      return g;
+    }
+    var dragging = false, limited = false;
     svg.addEventListener('pointerdown', function (ev) {
       ev.preventDefault();
+      var m = freeStart(minAt(ev));
+      if (m === null) { t2.textContent = '빈 시간이 없어요'; return; }
       svg.setPointerCapture(ev.pointerId);
       dragging = true;
-      val.start = minAt(ev);
-      val.end = val.start;
+      limited = false;
+      val.start = m;
+      val.end = m;
       paint();
     });
     svg.addEventListener('pointermove', function (ev) {
       if (!dragging) return;
-      var m = minAt(ev);
-      if (m !== val.end) { val.end = m; paint(); }
+      var len = span(val.start, minAt(ev));
+      var max = gapFrom(val.start);
+      limited = false;
+      if (len > max) {
+        // 반대로 조금 돌린 거면 0, 앞으로 넘친 거면 다른 일정 직전까지
+        len = (1440 - len) < (len - max) ? 0 : max;
+        limited = len === max;
+      }
+      var e = (val.start + len) % 1440;
+      if (e !== val.end) { val.end = e; paint(); }
+      if (limited) t2.textContent = '다음 일정 전까지';
     });
     function up() {
       if (!dragging) return;
