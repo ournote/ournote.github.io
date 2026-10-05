@@ -15,6 +15,7 @@
 <meta name="apple-mobile-web-app-title" content="약속 노트">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="prefetch" href="/map.html">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
 <style>
   :root {
@@ -94,7 +95,7 @@
     box-shadow: var(--shadow);
     text-decoration: none;
   }
-  body.switching .wrap, body.switching .fab { transition: opacity .24s ease, transform .24s ease; opacity: 0; transform: scale(.98); }
+  body.switching .wrap, body.switching .fab { transition: opacity .12s ease, transform .12s ease; opacity: 0; transform: scale(.98); }
   .netbtn {
     position: absolute;
     top: calc(24px + env(safe-area-inset-top));
@@ -111,8 +112,8 @@
     text-decoration: none;
   }
   .netbtn svg { width: 22px; height: 22px; }
-  body.leaving .wrap, body.leaving .fab { transition: opacity .28s ease, transform .28s ease; opacity: 0; transform: scale(.96); }
-  body.leaving { background: #120d14; transition: background .28s ease; }
+  body.leaving .wrap, body.leaving .fab { transition: opacity .14s ease, transform .14s ease; opacity: 0; transform: scale(.96); }
+  body.leaving { background: #120d14; transition: background .14s ease; }
   header.top h1 {
     margin: 0;
     font-family: var(--serif);
@@ -840,14 +841,14 @@
     e.preventDefault();
     var href = this.getAttribute('href');
     document.body.classList.add('leaving');
-    setTimeout(function () { location.href = href; }, 260);
+    setTimeout(function () { location.href = href; }, 120);
   });
   document.getElementById('verBtn').addEventListener('click', function (e) {
     if (e.metaKey || e.ctrlKey) return;
     e.preventDefault();
     var href = this.getAttribute('href');
     document.body.classList.add('switching');
-    setTimeout(function () { location.href = href; }, 220);
+    setTimeout(function () { location.href = href; }, 120);
   });
   window.addEventListener('pageshow', function () { document.body.classList.remove('leaving', 'switching'); });
 

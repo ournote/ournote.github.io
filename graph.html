@@ -682,7 +682,7 @@
     e.preventDefault();
     document.body.classList.add('leaving');
     var href = this.getAttribute('href');
-    setTimeout(function () { location.href = href; }, 220);
+    setTimeout(function () { location.href = href; }, 120);
   });
   window.addEventListener('pageshow', function () { document.body.classList.remove('leaving'); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closePanel(); });

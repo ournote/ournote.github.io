@@ -1,5 +1,5 @@
 // 배포할 때마다 VERSION을 올리면 이전 캐시가 정리되고 새 앱 셸이 저장된다.
-const VERSION = 'v1.9.8';
+const VERSION = 'v1.10.0';
 const SHELL_CACHE = 'ournote-shell-' + VERSION;
 const FONT_CACHE = 'ournote-fonts';
 const SHELL = [
@@ -57,21 +57,24 @@ self.addEventListener('fetch', (event) => {
 
   if (url.origin !== self.location.origin) return;
 
-  // 페이지 열기: 네트워크 우선, 오프라인이면 캐시된 셸
+  // 페이지 열기: 저장해 둔 페이지를 바로 보여주고, 최신본은 뒤에서 받아 다음에 씀
   if (req.mode === 'navigate') {
+    const key = url.pathname;
+    const network = fetch(req).then((res) => {
+      if (res.ok) {
+        const copy = res.clone();
+        caches.open(SHELL_CACHE).then((cache) => cache.put(key, copy));
+      }
+      return res;
+    });
     event.respondWith(
-      fetch(req)
-        .then((res) => {
-          if (res.ok) {
-            const copy = res.clone();
-            caches.open(SHELL_CACHE).then((cache) => cache.put(url.pathname, copy));
-          }
-          return res;
-        })
-        .catch(() =>
-          caches.match(url.pathname, { ignoreSearch: true })
-            .then((r) => r || caches.match('/index.html'))
-        )
+      caches.match(key, { ignoreSearch: true }).then((cached) => {
+        if (cached) {
+          event.waitUntil(network.catch(() => {}));
+          return cached;
+        }
+        return network.catch(() => caches.match('/index.html'));
+      })
     );
     return;
   }
