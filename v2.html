@@ -375,6 +375,20 @@
   }
   .review { background: var(--ok-soft); border-radius: 12px; padding: 10px 12px; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
   .dempty { color: var(--muted); font-size: 14px; }
+  .acts .sp { flex: 1; }
+  .btn.del { color: var(--rose); border-color: var(--rose-soft); background: transparent; }
+  .btn.delx { background: var(--rose); border-color: var(--rose); color: var(--paper); font-weight: 600; }
+  .confirm {
+    margin-top: 14px;
+    background: var(--rose-soft);
+    border-radius: 14px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .confirm span { flex: 1; color: var(--rose); font-weight: 500; font-size: 14px; }
+  .confirm .btn { padding: 7px 13px; font-size: 14px; }
 </style>
 </head>
 <body>
@@ -587,33 +601,35 @@
   function fld(id, label, opts) {
     opts = opts || {};
     var input = opts.textarea
-      ? '<textarea id="' + id + '" rows="3" placeholder="' + esc(opts.ph || '') + '"></textarea>'
-      : '<input id="' + id + '" type="text" placeholder="' + esc(opts.ph || '') + '" autocomplete="off"' + (opts.mode ? ' inputmode="' + opts.mode + '"' : '') + '>';
+      ? '<textarea id="' + id + '" rows="3" placeholder="' + esc(opts.ph || '') + '">' + esc(opts.val || '') + '</textarea>'
+      : '<input id="' + id + '" type="text" value="' + esc(opts.val || '') + '" placeholder="' + esc(opts.ph || '') + '" autocomplete="off"' + (opts.mode ? ' inputmode="' + opts.mode + '"' : '') + '>';
     return '<div class="fld" data-f="' + id + '"><label for="' + id + '">' + label + (opts.req ? ' <span class="req">*</span>' : '') + '</label>' + input + '</div>';
   }
 
   // ---------- 등록하기 ----------
   function uid() { return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8); }
 
-  function openAdd() {
+  function openEditor(item) {
+    var isNew = !item;
     var pageId = PAGES[current] ? PAGES[current].id : 'all';
-    var cat = CAT[pageId] ? pageId : 'food';
-    var html = '<h2>새 약속</h2>' +
-      fld('a-title', '무엇을', { req: true, ph: '예) 성수동 소금빵 같이 먹기' }) +
+    var cat = item ? (CAT[item.cat] ? item.cat : 'food') : (CAT[pageId] ? pageId : 'food');
+    var v = item || {};
+    var html = '<h2>' + (isNew ? '새 약속' : '약속 고치기') + '</h2>' +
+      fld('a-title', '무엇을', { req: true, ph: '예) 성수동 소금빵 같이 먹기', val: v.title }) +
       '<div class="fld"><span class="lab">카테고리</span><div class="cats">' +
       Object.keys(CAT).map(function (k) {
         return '<button type="button" class="cat" data-cat="' + k + '" aria-pressed="' + (k === cat) + '">' + CAT[k].emoji + ' ' + esc(CAT[k].label) + '</button>';
       }).join('') + '</div></div>' +
-      fld('a-place', '주소', { ph: '지도에서 찾을 주소나 가게 이름' }) +
-      fld('a-link', '링크', { ph: 'https://', mode: 'url' }) +
-      fld('a-memo', '메모', { textarea: true, ph: '영업시간, 메뉴, 사이즈 등' }) +
-      fld('a-when', '목표 시기', { ph: '예) 12월, 100일, 다음 휴가' }) +
+      fld('a-place', '주소', { ph: '지도에서 찾을 주소나 가게 이름', val: v.place }) +
+      fld('a-link', '링크', { ph: 'https://', mode: 'url', val: v.link }) +
+      fld('a-memo', '메모', { textarea: true, ph: '영업시간, 메뉴, 사이즈 등', val: v.memo }) +
+      fld('a-when', '목표 시기', { ph: '예) 12월, 100일, 다음 휴가', val: v.when }) +
       '<div class="acts"><button type="button" class="btn" data-act="close">닫기</button>' +
       '<button type="button" class="btn pri" data-act="save">저장</button></div>';
 
     openSheet(html, function (bs) {
       var title = bs.querySelector('#a-title');
-      setTimeout(function () { title.focus(); }, 80);
+      if (isNew) setTimeout(function () { title.focus(); }, 80);
       title.addEventListener('input', function () { bs.querySelector('[data-f="a-title"]').classList.remove('err'); });
 
       function save() {
@@ -623,24 +639,31 @@
           title.focus();
           return;
         }
-        var list = loadRaw();
-        var maxCreated = list.reduce(function (m, x) { return Math.max(m, Number(x && x.createdAt) || 0); }, 0);
-        list.push({
-          id: uid(),
+        var vals = {
           title: t,
           cat: cat,
           place: bs.querySelector('#a-place').value.trim(),
           link: bs.querySelector('#a-link').value.trim(),
           memo: bs.querySelector('#a-memo').value.trim(),
-          when: bs.querySelector('#a-when').value.trim(),
-          done: false,
-          doneAt: '',
-          review: '',
-          createdAt: Math.max(Date.now(), maxCreated + 1)
-        });
+          when: bs.querySelector('#a-when').value.trim()
+        };
+        var list = loadRaw();
+        if (isNew) {
+          var maxCreated = list.reduce(function (m, x) { return Math.max(m, Number(x && x.createdAt) || 0); }, 0);
+          vals.id = uid();
+          vals.done = false;
+          vals.doneAt = '';
+          vals.review = '';
+          vals.createdAt = Math.max(Date.now(), maxCreated + 1);
+          list.push(vals);
+        } else {
+          var target = list.find(function (x) { return x && String(x.id) === String(item.id); });
+          if (target) Object.assign(target, vals);
+        }
         saveRaw(list);
         renderAll(false);
         closeSheet();
+        if (!isNew) setTimeout(function () { closeSheet(); setTimeout(function () { openDetail(String(item.id)); }, 120); }, 0);
       }
 
       bs.addEventListener('click', function (e) {
@@ -660,7 +683,7 @@
       });
     });
   }
-  document.getElementById('addBtn').addEventListener('click', openAdd);
+  document.getElementById('addBtn').addEventListener('click', function () { openEditor(null); });
 
   // ---------- 세부내용 ----------
   function openDetail(id) {
@@ -686,9 +709,28 @@
       (it.done === true && it.doneAt ? '<span class="ddone">' + esc(String(it.doneAt).replace(/-/g, '.')) + ' 완료</span>' : '') + '</div>' +
       '<h2>' + esc(it.title) + '</h2>' +
       (rows.length ? '<div class="dl">' + rows.join('') + '</div>' : '<div class="dempty">적어둔 세부내용이 없어요.</div>') +
-      '<div class="acts"><button type="button" class="btn" data-act="close">닫기</button></div>';
+      '<div class="acts"><button type="button" class="btn del" data-act="del">삭제</button><span class="sp"></span>' +
+      '<button type="button" class="btn" data-act="close">닫기</button>' +
+      '<button type="button" class="btn pri" data-act="edit">수정</button></div>' +
+      '<div class="confirm" data-confirm hidden><span>정말 지울까요?</span>' +
+      '<button type="button" class="btn" data-act="del-no">아니요</button>' +
+      '<button type="button" class="btn delx" data-act="del-yes">지우기</button></div>';
     openSheet(html, function (bs) {
-      bs.querySelector('[data-act="close"]').addEventListener('click', closeSheet);
+      bs.addEventListener('click', function (e) {
+        var a = e.target.closest('[data-act]');
+        if (!a) return;
+        var act = a.getAttribute('data-act');
+        var box = bs.querySelector('[data-confirm]');
+        if (act === 'close') closeSheet();
+        else if (act === 'edit') openEditor(it);
+        else if (act === 'del') { box.hidden = false; box.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+        else if (act === 'del-no') box.hidden = true;
+        else if (act === 'del-yes') {
+          saveRaw(loadRaw().filter(function (x) { return !(x && String(x.id) === id); }));
+          renderAll(false);
+          closeSheet();
+        }
+      });
     });
   }
 
