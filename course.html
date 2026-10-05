@@ -829,7 +829,8 @@
       else { if (g) push(g); g = { start: d, end: d }; }
     });
     if (g) push(g);
-    if (store.stops.some(function (s) { return !s.date; }) || (!trip.start && out.length)) push({ start: '', end: '' });
+    // 날짜 없는 일정은 이제 못 만들지만, 예전에 넣어둔 게 남아 있으면 옮길 수 있게 보여줌
+    if (store.stops.some(function (s) { return !s.date; })) push({ start: '', end: '' });
     if (trip.start) push(trip);
     out.sort(function (a, b) {
       if (!a.start) return 1;
@@ -897,7 +898,7 @@
   function renderTrips() {
     var el = document.getElementById('trips');
     var list = chipRanges();
-    if (!list.length) { el.hidden = true; return; }
+    if (!list.length || (list.length === 1 && !stopsIn(list[0]).length)) { el.hidden = true; return; }
     el.hidden = false;
     var cur = rkey(trip);
     el.innerHTML = list.map(function (r) {
@@ -913,7 +914,7 @@
     var txt = document.getElementById('whenText');
     var nn = document.getElementById('whenNights');
     if (!t.start) {
-      txt.textContent = '날짜 고르기 (안 골라도 돼요)';
+      txt.textContent = '날짜 없음 · 눌러서 날짜 고르기';
       txt.className = 'd none';
       nn.hidden = true;
     } else {
@@ -967,7 +968,7 @@
       '<div class="cal-head"><button type="button" data-mv="-1" aria-label="이전 달">‹</button><b data-title></b><button type="button" data-mv="1" aria-label="다음 달">›</button></div>' +
       '<div class="cal" data-cal></div>' +
       '<div class="calsum" data-sum></div>' +
-      '<div class="acts"><button type="button" class="btn ghost" data-act="nodate">날짜 없이</button><span class="sp"></span>' +
+      '<div class="acts"><span class="sp"></span>' +
       '<button type="button" class="btn" data-act="close">닫기</button>' +
       '<button type="button" class="btn pri" data-act="ok">확인</button></div>';
 
@@ -1018,7 +1019,6 @@
         if (!a) return;
         var act = a.getAttribute('data-act');
         if (act === 'close') closeSheet();
-        else if (act === 'nodate') applyDates('', '', isNew);
         else if (act === 'ok') {
           if (!sel.start) { toast('날짜를 골라주세요'); return; }
           applyDates(sel.start, sel.end || sel.start, isNew);
@@ -1247,6 +1247,8 @@
   });
 
   function renderAll(fit) {
+    // 항상 날짜를 보고 있게: 날짜가 없으면(예전 날짜 없는 일정이 남아 있을 때만 예외) 오늘
+    if (!trip.start && !store.stops.some(function (s) { return !s.date; })) { trip.start = trip.end = todayYmd(); dayIdx = 0; save(); }
     focusedId = null;
     syncPastTimer();
     renderTrips();
@@ -1819,6 +1821,7 @@
   function fmtDist(m) { return m < 1000 ? Math.round(m) + 'm' : (m / 1000).toFixed(m < 10000 ? 1 : 0) + 'km'; }
 
   function openAdd() {
+    if (!trip.start) { toast('먼저 날짜를 골라주세요'); openCalendar(false); return; }
     var color = nextColor();
     var choice = null;
     var time = { start: null, end: null };
@@ -2110,8 +2113,7 @@
         moveBox.innerHTML = opts.map(function (d) {
           return '<button type="button" class="sortchip" data-mv-to="' + d + '" aria-pressed="' + (d === newDate) + '">' + md(d) + ' (' + WEEK[parse(d).getDay()] + ')</button>';
         }).join('') +
-          '<input type="date" data-mv-input value="' + esc(newDate) + '" aria-label="다른 날짜">' +
-          '<button type="button" class="sortchip" data-mv-to="" aria-pressed="' + (!newDate) + '">날짜 없음</button>';
+          '<input type="date" data-mv-input value="' + esc(newDate) + '" aria-label="다른 날짜">';
       }
       paintMove();
       moveBox.addEventListener('change', function (e) {
@@ -2183,6 +2185,7 @@
           }
           var dateMoved = newDate !== (st.date || '');
           if (dateMoved) st.date = newDate;
+          if (dateMoved && !trip.start) { trip.start = trip.end = newDate; dayIdx = 0; } // 날짜 없던 일정을 옮기면 그 날짜로 따라감
           save();
           closeSheet();
           renderAll(moved || dateMoved);
