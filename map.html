@@ -775,16 +775,16 @@
     el.addEventListener('touchcancel', end, { capture: true, passive: false });
   }
 
-  // 화면 안 뒤로가기: 바로 전 화면이 그 페이지면 진짜 뒤로가기(기록 한 칸 빼기),
-  // 아니면 기록을 남기지 않고 바꿔치기 → 스와이프 뒤로가기로 방금 화면이 다시 나오지 않음
+  // 화면 안 뒤로가기: 앱 안에서 왔으면 진짜 뒤로가기(기록 한 칸 빼기),
+  // 바로 열었으면 기록을 남기지 않고 바꿔치기 → 스와이프 뒤로가기로 방금 화면이 다시 나오지 않음
   function goBackTo(href) {
     function norm(p) { return p === '/index.html' ? '/' : p; }
-    var target = norm(new URL(href, location.href).pathname);
     var prev = '';
     try { prev = document.referrer ? norm(new URL(document.referrer).pathname) : ''; } catch (e) { prev = ''; }
     var sameSite = false;
     try { sameSite = !!document.referrer && new URL(document.referrer).origin === location.origin; } catch (e) { sameSite = false; }
-    if (sameSite && prev === target && history.length > 1) history.back();
+    // 앱 안 다른 화면(예: Ver.2에서 지도)에서 왔어도 그 화면으로 돌아감
+    if (sameSite && prev && history.length > 1) history.back();
     else location.replace(href);
   }
 
