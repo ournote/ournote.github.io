@@ -108,30 +108,103 @@
 
   .sec { margin: 14px 2px 8px; font-size: 12px; letter-spacing: .06em; color: var(--muted); }
 
-  /* 1. 일시 */
+  /* 1. 일시: 저장된 코스(날짜별) + 날짜 범위 */
+  .trips {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 -2px 8px;
+    padding: 2px;
+  }
+  .trips::-webkit-scrollbar { display: none; }
+  .trip {
+    flex: 0 0 auto;
+    border: 1px solid var(--line);
+    background: var(--paper-60);
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 12.5px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .trip[aria-pressed="true"] { background: var(--plum); border-color: var(--plum); color: var(--bg); }
+  .trip.new { color: var(--rose); }
   .when {
     display: flex;
     align-items: center;
     gap: 10px;
+    width: 100%;
+    text-align: left;
     border: 1px solid var(--line);
     background: var(--paper-60);
     border-radius: 14px;
-    padding: 10px 14px;
+    padding: 11px 14px;
+    cursor: pointer;
   }
-  .when label { font-size: 13px; color: var(--muted); white-space: nowrap; }
-  .when input {
-    flex: 1;
-    min-width: 0;
+  .when .d { flex: 1; min-width: 0; font-family: var(--serif); font-weight: 700; font-size: 16px; color: var(--plum); }
+  .when .d.none { color: var(--muted); font-weight: 400; font-size: 14.5px; font-family: var(--sans); }
+  .when .n { flex: 0 0 auto; font-size: 12px; color: var(--rose); background: var(--rose-soft); border-radius: 999px; padding: 2px 9px; font-weight: 600; }
+  .days { display: flex; gap: 6px; margin-top: 8px; overflow-x: auto; scrollbar-width: none; }
+  .days::-webkit-scrollbar { display: none; }
+  .day {
+    flex: 0 0 auto;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--muted);
+    border-radius: 10px;
+    padding: 5px 11px;
+    font-size: 12.5px;
+    line-height: 1.35;
+    text-align: center;
+    cursor: pointer;
+  }
+  .day b { display: block; font-size: 13px; color: inherit; }
+  .day[aria-pressed="true"] { border-color: var(--rose); background: var(--rose-soft); color: var(--rose); }
+
+  /* 달력 */
+  .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .cal-head b { font-family: var(--serif); font-size: 17px; color: var(--plum); }
+  .cal-head button { border: 1px solid var(--line); background: var(--paper); border-radius: 50%; width: 34px; height: 34px; cursor: pointer; color: var(--plum); }
+  .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px 0; text-align: center; }
+  .cal .w { font-size: 11.5px; color: var(--muted); padding: 4px 0; }
+  .cal .w:first-child { color: var(--rose); }
+  .cd {
+    position: relative;
+    height: 40px;
     border: 0;
     background: transparent;
-    font-family: var(--serif);
-    font-weight: 700;
-    font-size: 16px;
-    color: var(--plum);
-    outline: none;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    color: var(--ink);
   }
-  .when .clear { border: 0; background: none; color: var(--muted); font-size: 18px; line-height: 1; padding: 0 2px; cursor: pointer; }
-
+  .cd.out { visibility: hidden; }
+  .cd.sun { color: var(--rose); }
+  .cd.today::after { content: ""; position: absolute; left: 50%; bottom: 5px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--rose); }
+  .cd.has span { text-decoration: underline; text-decoration-color: var(--rose); text-underline-offset: 3px; }
+  .cd.in { background: var(--rose-soft); }
+  .cd.s, .cd.e { background: var(--rose-soft); }
+  .cd.s { border-radius: 999px 0 0 999px; }
+  .cd.e { border-radius: 0 999px 999px 0; }
+  .cd.s.e { border-radius: 999px; }
+  .cd.s span, .cd.e span {
+    display: inline-grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--rose);
+    color: var(--paper);
+    font-weight: 700;
+  }
+  .calsum { margin-top: 12px; text-align: center; font-size: 14px; color: var(--plum); font-weight: 600; min-height: 22px; }
+  .calsum small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+  .dangerlink { display: block; margin: 26px auto 0; border: 0; background: none; color: var(--muted); font-size: 12.5px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+  .confirm { margin-top: 10px; background: var(--rose-soft); border-radius: 14px; padding: 10px 12px; display: flex; align-items: center; gap: 8px; }
+  .confirm span { flex: 1; color: var(--rose); font-weight: 500; font-size: 14px; }
+  .confirm .btn { padding: 7px 13px; font-size: 14px; }
   /* 2. 지도 */
   .mapbox {
     position: relative;
@@ -343,11 +416,11 @@
   </header>
 
   <div class="sec">일시</div>
-  <div class="when">
-    <label for="date">📅</label>
-    <input type="date" id="date" aria-label="데이트 날짜 (비워둬도 돼요)">
-    <button class="clear" id="dateClear" type="button" aria-label="날짜 지우기" hidden>×</button>
-  </div>
+  <div class="trips" id="trips" role="tablist" aria-label="저장된 코스"></div>
+  <button class="when" id="whenBtn" type="button" aria-label="날짜 고르기">
+    <span>📅</span><span class="d" id="whenText"></span><span class="n" id="whenNights" hidden></span>
+  </button>
+  <div class="days" id="days" hidden></div>
 
   <div class="sec">지도</div>
   <div class="mapbox">
@@ -364,6 +437,10 @@
       추가하기
     </button>
   </div>
+  <button type="button" class="dangerlink" id="delTrip">이 코스 지우기</button>
+  <div class="confirm" id="delConfirm" hidden><span>이 코스를 통째로 지울까요?</span>
+    <button type="button" class="btn" id="delNo">아니요</button>
+    <button type="button" class="btn pri" id="delYes">지우기</button></div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -373,10 +450,12 @@
   document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
 
   var KAKAO_JS_KEY = 'fdb9bb9ef9a347bf4b1c4a08e9f00fcf';
-  var COURSE_KEY = 'ournote:course';
+  var TRIPS_KEY = 'ournote:courses';
+  var OLD_KEY = 'ournote:course';
   var ITEMS_KEY = 'ournote:items';
   var GEO_KEY = 'ournote:geo';
   var COLORS = ['#e3829f', '#f0b45c', '#7cc59a', '#7fb3e0', '#b99be8', '#f08a6c', '#5fc0bb', '#d98cc9'];
+  var WEEK = ['일', '월', '화', '수', '목', '금', '토'];
 
   // ---------- 저장 ----------
   function readJSON(key, fallback) {
@@ -390,25 +469,62 @@
   function writeJSON(key, v) {
     try { localStorage.setItem(key, JSON.stringify(v)); return true; } catch (e) { return false; }
   }
-  var course = readJSON(COURSE_KEY, null);
-  if (!course || typeof course !== 'object' || !Array.isArray(course.stops)) course = { date: '', stops: [] };
+  function uid() { return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8); }
+
+  // 코스는 날짜(여행 기간)마다 따로 저장: { trips: [{ id, start, end, stops: [{…, day}] }], current }
+  var store = readJSON(TRIPS_KEY, null);
+  if (!store || !Array.isArray(store.trips)) {
+    store = { trips: [], current: '' };
+    var old = readJSON(OLD_KEY, null); // 예전 한 개짜리 코스 옮기기
+    if (old && Array.isArray(old.stops) && (old.stops.length || old.date)) {
+      var t0 = { id: uid(), start: old.date || '', end: old.date || '', stops: old.stops.map(function (s) { s.day = 0; return s; }) };
+      store.trips.push(t0);
+      store.current = t0.id;
+    }
+  }
+  store.trips.forEach(function (t) {
+    if (!Array.isArray(t.stops)) t.stops = [];
+    if (!t.end) t.end = t.start;
+  });
   var geo = readJSON(GEO_KEY, {});
   if (!geo || typeof geo !== 'object') geo = {};
-  function saveCourse() { writeJSON(COURSE_KEY, course); }
+  var trip = null, dayIdx = 0;
 
-  // ---------- 유틸 ----------
+  function save() { writeJSON(TRIPS_KEY, store); }
+
+  // ---------- 날짜 유틸 ----------
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function parse(s) { var p = String(s).split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  function addDays(s, n) { var d = parse(s); d.setDate(d.getDate() + n); return ymd(d); }
+  function nightsOf(t) { return t.start && t.end ? Math.round((parse(t.end) - parse(t.start)) / 86400000) : 0; }
+  function md(s) { var d = parse(s); return (d.getMonth() + 1) + '.' + d.getDate(); }
+  function mdw(s) { var d = parse(s); return (d.getMonth() + 1) + '월 ' + d.getDate() + '일 (' + WEEK[d.getDay()] + ')'; }
+  function nightsLabel(n) { return n > 0 ? n + '박 ' + (n + 1) + '일' : '당일'; }
+  function tripLabel(t) {
+    if (!t.start) return '날짜 없음';
+    var n = nightsOf(t);
+    return n ? md(t.start) + '–' + md(t.end) + ' · ' + nightsLabel(n) : md(t.start) + ' (' + WEEK[parse(t.start).getDay()] + ')';
+  }
+  function sortTrips() {
+    store.trips.sort(function (a, b) {
+      if (!a.start) return 1;
+      if (!b.start) return -1;
+      return a.start < b.start ? -1 : a.start > b.start ? 1 : 0;
+    });
+  }
+
+  // ---------- 기타 유틸 ----------
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
-  function uid() { return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8); }
-  function pad(n) { return (n < 10 ? '0' : '') + n; }
   function hm(min) { min = ((min % 1440) + 1440) % 1440; return pad(Math.floor(min / 60)) + ':' + pad(min % 60); }
   function span(s, e) { return ((e - s) % 1440 + 1440) % 1440; }
   function durText(m) {
     var h = Math.floor(m / 60), r = m % 60;
-    return (h ? h + '시간' : '') + (r ? (h ? ' ' : '') + r + '분' : '') || '';
+    return (h ? h + '시간' : '') + (r ? (h ? ' ' : '') + r + '분' : '');
   }
   function hasTime(st) { return typeof st.start === 'number' && typeof st.end === 'number' && st.start !== st.end; }
   function distKm(a, b) {
@@ -425,51 +541,226 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2200);
   }
+
+  function dayStops() { return trip ? trip.stops.filter(function (s) { return (s.day || 0) === dayIdx; }) : []; }
   function nextColor() {
     var used = {};
-    course.stops.forEach(function (s) { used[s.color] = (used[s.color] || 0) + 1; });
+    dayStops().forEach(function (s) { used[s.color] = (used[s.color] || 0) + 1; });
     var best = COLORS[0], n = Infinity;
     COLORS.forEach(function (c) { if ((used[c] || 0) < n) { n = used[c] || 0; best = c; } });
     return best;
   }
-
   // 시간이 있으면 시작 시간 순, 없으면 넣은 순서대로 뒤에
   function ordered() {
-    var timed = course.stops.filter(hasTime).sort(function (a, b) { return a.start - b.start; });
-    var rest = course.stops.filter(function (s) { return !hasTime(s); });
-    return timed.concat(rest);
+    var list = dayStops();
+    return list.filter(hasTime).sort(function (a, b) { return a.start - b.start; })
+      .concat(list.filter(function (s) { return !hasTime(s); }));
   }
 
   // ---------- 1. 일시 ----------
-  var dateInput = document.getElementById('date');
-  var dateClear = document.getElementById('dateClear');
-  dateInput.value = course.date || '';
-  dateClear.hidden = !dateInput.value;
-  dateInput.addEventListener('change', function () {
-    course.date = dateInput.value;
-    dateClear.hidden = !dateInput.value;
-    saveCourse();
+  function selectTrip(id) {
+    trip = store.trips.find(function (t) { return t.id === id; }) || null;
+    store.current = trip ? trip.id : '';
+    dayIdx = 0;
+    save();
+    renderAll(true);
+  }
+  function ensureTrip() {
+    if (trip) return trip;
+    trip = { id: uid(), start: '', end: '', stops: [] };
+    store.trips.push(trip);
+    store.current = trip.id;
+    save();
+    return trip;
+  }
+
+  function renderTrips() {
+    sortTrips();
+    var el = document.getElementById('trips');
+    if (!store.trips.length) { el.hidden = true; return; }
+    el.hidden = false;
+    el.innerHTML = store.trips.map(function (t) {
+      return '<button type="button" class="trip" data-trip="' + esc(t.id) + '" aria-pressed="' + (trip === t) + '">' + esc(tripLabel(t)) +
+        (t.stops.length ? ' · ' + t.stops.length + '곳' : '') + '</button>';
+    }).join('') + '<button type="button" class="trip new" data-new>+ 새 코스</button>';
+    var cur = el.querySelector('[aria-pressed="true"]');
+    if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
+  function renderWhen() {
+    var t = trip || { start: '', end: '' };
+    var txt = document.getElementById('whenText');
+    var nn = document.getElementById('whenNights');
+    if (!t.start) {
+      txt.textContent = '날짜 고르기 (안 골라도 돼요)';
+      txt.className = 'd none';
+      nn.hidden = true;
+    } else {
+      var n = nightsOf(t);
+      var sameMonth = parse(t.end).getMonth() === parse(t.start).getMonth();
+      txt.textContent = n ? mdw(t.start) + ' – ' + (sameMonth ? mdw(t.end).replace(/^\d+월 /, '') : mdw(t.end)) : mdw(t.start);
+      txt.className = 'd';
+      nn.textContent = nightsLabel(n);
+      nn.hidden = false;
+    }
+    var days = document.getElementById('days');
+    var n2 = trip ? nightsOf(trip) : 0;
+    if (!n2) { days.hidden = true; days.innerHTML = ''; return; }
+    days.hidden = false;
+    var html = '';
+    for (var i = 0; i <= n2; i++) {
+      var dstr = addDays(trip.start, i);
+      var cnt = trip.stops.filter(function (s) { return (s.day || 0) === i; }).length;
+      html += '<button type="button" class="day" data-day="' + i + '" aria-pressed="' + (i === dayIdx) + '"><b>' + (i + 1) + '일차</b>' + md(dstr) + (cnt ? ' · ' + cnt : '') + '</button>';
+    }
+    days.innerHTML = html;
+  }
+
+  document.getElementById('trips').addEventListener('click', function (e) {
+    var t = e.target.closest('[data-trip]');
+    if (t) { selectTrip(t.getAttribute('data-trip')); return; }
+    if (e.target.closest('[data-new]')) openCalendar(true);
   });
-  dateClear.addEventListener('click', function () {
-    dateInput.value = '';
-    course.date = '';
-    dateClear.hidden = true;
-    saveCourse();
+  document.getElementById('whenBtn').addEventListener('click', function () { openCalendar(false); });
+  document.getElementById('days').addEventListener('click', function (e) {
+    var d = e.target.closest('[data-day]');
+    if (!d) return;
+    dayIdx = Number(d.getAttribute('data-day'));
+    renderWhen();
+    renderStops();
+    drawMap(true);
+  });
+
+  // 달력: 첫 번째 탭 = 시작일, 두 번째 탭 = 마지막 날(연박)
+  function openCalendar(isNew) {
+    var base = !isNew && trip ? trip : { start: '', end: '' };
+    var sel = { start: base.start || '', end: base.end || base.start || '' };
+    var picking = sel.start && sel.end && sel.start !== sel.end ? 'start' : (sel.start ? 'end' : 'start');
+    var shown = sel.start ? parse(sel.start) : new Date();
+    shown = new Date(shown.getFullYear(), shown.getMonth(), 1);
+    var today = ymd(new Date());
+    var tripDays = {};
+    store.trips.forEach(function (t) {
+      if (!t.start) return;
+      for (var i = 0; i <= nightsOf(t); i++) tripDays[addDays(t.start, i)] = true;
+    });
+
+    var html = '<h2>' + (isNew ? '새 코스 날짜' : '날짜 고르기') + '</h2>' +
+      '<div class="cal-head"><button type="button" data-mv="-1" aria-label="이전 달">‹</button><b data-title></b><button type="button" data-mv="1" aria-label="다음 달">›</button></div>' +
+      '<div class="cal" data-cal></div>' +
+      '<div class="calsum" data-sum></div>' +
+      '<div class="acts"><button type="button" class="btn ghost" data-act="nodate">날짜 없이</button><span class="sp"></span>' +
+      '<button type="button" class="btn" data-act="close">닫기</button>' +
+      '<button type="button" class="btn pri" data-act="ok">확인</button></div>';
+
+    openSheet(html, function (bs) {
+      function paint() {
+        bs.querySelector('[data-title]').textContent = shown.getFullYear() + '년 ' + (shown.getMonth() + 1) + '월';
+        var first = shown.getDay();
+        var dim = new Date(shown.getFullYear(), shown.getMonth() + 1, 0).getDate();
+        var h = WEEK.map(function (w) { return '<div class="w">' + w + '</div>'; }).join('');
+        for (var i = 0; i < first; i++) h += '<button type="button" class="cd out" tabindex="-1"></button>';
+        for (var d = 1; d <= dim; d++) {
+          var s = ymd(new Date(shown.getFullYear(), shown.getMonth(), d));
+          var cls = ['cd'];
+          if (new Date(shown.getFullYear(), shown.getMonth(), d).getDay() === 0) cls.push('sun');
+          if (s === today) cls.push('today');
+          if (tripDays[s]) cls.push('has');
+          if (sel.start && s === sel.start) cls.push('s');
+          if (sel.end && s === sel.end) cls.push('e');
+          if (sel.start && sel.end && s > sel.start && s < sel.end) cls.push('in');
+          h += '<button type="button" class="' + cls.join(' ') + '" data-d="' + s + '"><span>' + d + '</span></button>';
+        }
+        bs.querySelector('[data-cal]').innerHTML = h;
+        var sum = bs.querySelector('[data-sum]');
+        if (!sel.start) sum.innerHTML = '<small>시작하는 날을 눌러주세요</small>';
+        else {
+          var n = Math.round((parse(sel.end) - parse(sel.start)) / 86400000);
+          sum.innerHTML = (n ? mdw(sel.start) + ' – ' + mdw(sel.end) + ' · ' + nightsLabel(n) : mdw(sel.start) + ' · 당일') +
+            '<small>' + (picking === 'end' ? '연박이면 마지막 날을 한 번 더 눌러주세요' : '다른 날을 누르면 처음부터 다시 골라요') + '</small>';
+        }
+      }
+      bs.addEventListener('click', function (e) {
+        var mv = e.target.closest('[data-mv]');
+        if (mv) { shown = new Date(shown.getFullYear(), shown.getMonth() + Number(mv.getAttribute('data-mv')), 1); paint(); return; }
+        var c = e.target.closest('[data-d]');
+        if (c) {
+          var s = c.getAttribute('data-d');
+          if (picking === 'start' || s < sel.start) {
+            sel.start = s; sel.end = s; picking = 'end';
+          } else {
+            sel.end = s;
+            if (Math.round((parse(sel.end) - parse(sel.start)) / 86400000) > 13) { sel.end = addDays(sel.start, 13); toast('최대 13박까지 고를 수 있어요'); }
+            picking = 'start';
+          }
+          paint();
+          return;
+        }
+        var a = e.target.closest('[data-act]');
+        if (!a) return;
+        var act = a.getAttribute('data-act');
+        if (act === 'close') closeSheet();
+        else if (act === 'nodate') applyDates('', '', isNew);
+        else if (act === 'ok') {
+          if (!sel.start) { toast('날짜를 골라주세요'); return; }
+          applyDates(sel.start, sel.end || sel.start, isNew);
+        }
+      });
+      paint();
+    });
+  }
+
+  function applyDates(start, end, isNew) {
+    // 같은 날짜(기간)의 코스가 이미 있으면 그걸 연다
+    var same = store.trips.find(function (t) { return t.start === start && t.end === end && t !== (isNew ? null : trip); });
+    if (same && (isNew || !trip || !trip.stops.length)) {
+      if (!isNew && trip && !trip.stops.length) store.trips = store.trips.filter(function (t) { return t !== trip; });
+      closeSheet();
+      selectTrip(same.id);
+      toast('이미 있는 코스를 열었어요');
+      return;
+    }
+    if (isNew || !trip) {
+      trip = { id: uid(), start: start, end: end, stops: [] };
+      store.trips.push(trip);
+    } else {
+      trip.start = start;
+      trip.end = end;
+      var last = nightsOf(trip);
+      trip.stops.forEach(function (s) { if ((s.day || 0) > last) s.day = last; }); // 줄어든 날의 장소는 마지막 날로
+    }
+    store.current = trip.id;
+    dayIdx = Math.min(dayIdx, nightsOf(trip));
+    if (isNew) dayIdx = 0;
+    save();
+    closeSheet();
+    renderAll(true);
+  }
+
+  // 코스 지우기
+  var delConfirm = document.getElementById('delConfirm');
+  document.getElementById('delTrip').addEventListener('click', function () { delConfirm.hidden = false; delConfirm.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); });
+  document.getElementById('delNo').addEventListener('click', function () { delConfirm.hidden = true; });
+  document.getElementById('delYes').addEventListener('click', function () {
+    if (trip) store.trips = store.trips.filter(function (t) { return t !== trip; });
+    delConfirm.hidden = true;
+    sortTrips();
+    selectTrip(store.trips[0] ? store.trips[0].id : '');
+    toast('코스를 지웠어요');
   });
 
   // ---------- 3. 코스 목록 ----------
   function renderStops() {
     var list = ordered();
     var el = document.getElementById('stops');
+    document.getElementById('delTrip').hidden = !trip;
     if (!list.length) {
-      el.innerHTML = '<div class="empty">아직 코스가 비어 있어요. 아래 ‘추가하기’로 갈 곳을 넣어보세요.</div>';
+      el.innerHTML = '<div class="empty">' + (trip && nightsOf(trip) ? (dayIdx + 1) + '일차 코스가 비어 있어요.' : '아직 코스가 비어 있어요.') + ' 아래 ‘추가하기’로 갈 곳을 넣어보세요.</div>';
       return;
     }
     var html = '';
     list.forEach(function (st, i) {
       if (i > 0) {
-        var prev = list[i - 1];
-        var gap = '';
+        var prev = list[i - 1], gap = '';
         if (prev.lat != null && st.lat != null) {
           var d = distKm(prev, st);
           gap = d < 1 ? Math.round(d * 1000) + 'm' : d.toFixed(1) + 'km';
@@ -487,10 +778,17 @@
   }
   document.getElementById('stops').addEventListener('click', function (e) {
     var b = e.target.closest('.stop');
-    if (!b) return;
-    var st = course.stops.find(function (s) { return s.id === b.getAttribute('data-id'); });
+    if (!b || !trip) return;
+    var st = trip.stops.find(function (s) { return s.id === b.getAttribute('data-id'); });
     if (st) openStop(st);
   });
+
+  function renderAll(fit) {
+    renderTrips();
+    renderWhen();
+    renderStops();
+    drawMap(fit);
+  }
 
   // ---------- 2. 지도 ----------
   var map = null, kakaoReady = false, overlays = [], line = null, geocoder = null, places = null;
@@ -506,9 +804,7 @@
     document.head.appendChild(s);
   }
   function mapFail() {
-    document.getElementById('mapMsg').textContent = navigator.onLine === false
-      ? '인터넷에 연결되면 지도가 보여요.'
-      : '지도를 불러오지 못했어요.';
+    document.getElementById('mapMsg').textContent = navigator.onLine === false ? '인터넷에 연결되면 지도가 보여요.' : '지도를 불러오지 못했어요.';
   }
   function initMap() {
     var k = window.kakao;
@@ -519,19 +815,18 @@
     places = new k.maps.services.Places();
     document.getElementById('mapMsg').hidden = true;
     kakaoReady = true;
-    // 위치가 아직 없는 장소는 주소로 찾아서 채움
-    var pending = course.stops.filter(function (s) { return s.lat == null && s.place; });
+    var pending = [];
+    store.trips.forEach(function (t) { t.stops.forEach(function (s) { if (s.lat == null && s.place) pending.push(s); }); });
     var left = pending.length;
     if (!left) { drawMap(true); return; }
     pending.forEach(function (st) {
       locate(st.place, function (c) {
         if (c) { st.lat = c.lat; st.lng = c.lng; }
         left -= 1;
-        if (!left) { saveCourse(); renderStops(); drawMap(true); }
+        if (!left) { save(); renderStops(); drawMap(true); }
       });
     });
   }
-
   function locate(addr, cb) {
     if (geo[addr]) { cb(geo[addr]); return; }
     if (!kakaoReady) { cb(null); return; }
@@ -547,14 +842,12 @@
       cb(c);
     }
   }
-
   function drawMap(fit) {
     if (!kakaoReady) return;
     var k = window.kakao;
     overlays.forEach(function (o) { o.setMap(null); });
     overlays = [];
     if (line) { line.setMap(null); line = null; }
-    var list = ordered().filter(function (s) { return s.lat != null; });
     var path = [];
     ordered().forEach(function (st, i) {
       if (st.lat == null) return;
@@ -571,16 +864,10 @@
       overlays.push(ov);
     });
     if (path.length > 1) {
-      line = new k.maps.Polyline({
-        path: path,
-        strokeWeight: 3,
-        strokeColor: '#b5476a',
-        strokeOpacity: 0.65,
-        strokeStyle: 'shortdash'
-      });
+      line = new k.maps.Polyline({ path: path, strokeWeight: 3, strokeColor: '#b5476a', strokeOpacity: 0.65, strokeStyle: 'shortdash' });
       line.setMap(map);
     }
-    document.getElementById('mapHint').hidden = list.length > 0;
+    document.getElementById('mapHint').hidden = path.length > 0;
     if (fit && path.length) {
       if (path.length === 1) { map.setLevel(4); map.setCenter(path[0]); }
       else {
@@ -590,8 +877,6 @@
       }
     }
   }
-
-  function refresh(fit) { renderStops(); drawMap(fit); }
 
   // ---------- 바텀시트 ----------
   var stack = [];
@@ -628,7 +913,6 @@
     svg.setAttribute('role', 'slider');
     svg.setAttribute('aria-label', '시간 범위: 시계를 눌러 끌어서 정해요');
     host.appendChild(svg);
-
     function pt(min, r) {
       var a = (min / 1440) * Math.PI * 2 - Math.PI / 2;
       return [C + Math.cos(a) * r, C + Math.sin(a) * r];
@@ -648,10 +932,7 @@
       return n;
     }
     el('circle', { cx: C, cy: C, r: R, class: 'face' });
-    // 다른 장소들의 시간은 옅게
-    others.forEach(function (o) {
-      if (hasTime(o)) el('path', { d: slice(o.start, o.end, R - 2), fill: o.color, opacity: 0.22 });
-    });
+    others.forEach(function (o) { if (hasTime(o)) el('path', { d: slice(o.start, o.end, R - 2), fill: o.color, opacity: 0.22 }); });
     var cur = el('path', { d: '', fill: color, opacity: 0.78 });
     for (var h = 0; h < 48; h++) {
       var major = h % 6 === 0;
@@ -665,7 +946,6 @@
     el('circle', { cx: C, cy: C, r: IN, class: 'mid' });
     var t1 = el('text', { x: C, y: C - 7, class: 'read' }, '');
     var t2 = el('text', { x: C, y: C + 13, class: 'read2' }, '');
-
     function paint() {
       if (val.start != null && val.end != null && val.start !== val.end) {
         cur.setAttribute('d', slice(val.start, val.end, R - 2));
@@ -682,7 +962,7 @@
       var x = (ev.clientX - r.left) / r.width * S - C, y = (ev.clientY - r.top) / r.height * S - C;
       var ang = Math.atan2(y, x) + Math.PI / 2;
       if (ang < 0) ang += Math.PI * 2;
-      return Math.round(ang / (Math.PI * 2) * 48) % 48 * 30; // 30분 단위
+      return Math.round(ang / (Math.PI * 2) * 48) % 48 * 30;
     }
     var dragging = false;
     svg.addEventListener('pointerdown', function (ev) {
@@ -708,16 +988,12 @@
     svg.addEventListener('pointerup', up);
     svg.addEventListener('pointercancel', up);
     paint();
-    return {
-      clear: function () { val.start = null; val.end = null; paint(); onChange(val); },
-      get: function () { return { start: val.start, end: val.end }; }
-    };
+    return { clear: function () { val.start = null; val.end = null; paint(); onChange(val); } };
   }
-
   function clockBlock() {
     return '<div class="clockwrap"><span class="lab">시간 (시계를 눌러 시작부터 끝까지 끌어주세요)</span>' +
       '<div data-clock></div>' +
-      '<div class="clocknote">30분 단위 · 다른 장소 시간은 옅게 보여요 <button type="button" class="btn ghost" data-act="clear-time">시간 지우기</button></div></div>';
+      '<div class="clocknote">30분 단위 · 같은 날 다른 장소 시간은 옅게 보여요 <button type="button" class="btn ghost" data-act="clear-time">시간 지우기</button></div></div>';
   }
 
   // ---------- 추가하기 ----------
@@ -730,31 +1006,30 @@
 
   function openAdd() {
     var color = nextColor();
-    var choice = null; // { title, place, lat, lng, itemId }
+    var choice = null;
     var time = { start: null, end: null };
-    var tab = 'mine';
-    var html = '<h2>코스에 추가</h2>' +
-      '<div class="seg"><button type="button" data-tab="mine" aria-pressed="true">내 약속에서</button>' +
-      '<button type="button" data-tab="search" aria-pressed="false">장소 검색</button></div>' +
-      '<div data-pane="mine"><div class="pick" data-list="mine"></div></div>' +
-      '<div data-pane="search" hidden><div class="search"><input type="search" id="q" placeholder="가게 이름, 동네, 주소" enterkeyhint="search" autocomplete="off">' +
+    var tab = 'search';
+    var dayNote = trip && nightsOf(trip) ? ' · ' + (dayIdx + 1) + '일차' : '';
+    var html = '<h2>코스에 추가' + dayNote + '</h2>' +
+      '<div class="seg"><button type="button" data-tab="search" aria-pressed="true">장소 검색</button>' +
+      '<button type="button" data-tab="mine" aria-pressed="false">내 약속에서</button></div>' +
+      '<div data-pane="search"><div class="search"><input type="search" id="q" placeholder="가게 이름, 동네, 주소" enterkeyhint="search" autocomplete="off">' +
       '<button type="button" class="btn" data-act="search">검색</button></div><div class="pick" data-list="search"><div class="hint">검색한 장소를 고르거나, 이름만 적고 추가해도 돼요.</div></div></div>' +
+      '<div data-pane="mine" hidden><div class="pick" data-list="mine"></div></div>' +
       clockBlock() +
       '<div class="acts"><button type="button" class="btn" data-act="close">닫기</button>' +
       '<button type="button" class="btn pri" data-act="save">코스에 추가</button></div>';
 
     openSheet(html, function (bs) {
-      var mineList = bs.querySelector('[data-list="mine"]');
       var items = savedItems();
-      mineList.innerHTML = items.length ? items.map(function (it, i) {
+      bs.querySelector('[data-list="mine"]').innerHTML = items.length ? items.map(function (it, i) {
         return '<button type="button" class="opt" data-mine="' + i + '"><div class="t">' + esc(it.title) + (it.done === true ? ' · 완료' : '') + '</div>' +
           (it.place ? '<div class="s">📍 ' + esc(it.place) + '</div>' : '<div class="s">주소 없음 · 지도엔 안 보여요</div>') + '</button>';
       }).join('') : '<div class="hint">저장된 약속이 없어요. ‘장소 검색’을 써보세요.</div>';
-
-      var clock = makeClock(bs.querySelector('[data-clock]'), color, course.stops, null, function (v) { time = v; });
+      var clock = makeClock(bs.querySelector('[data-clock]'), color, dayStops(), null, function (v) { time = v; });
       var searchResults = [];
 
-      function mark(listEl, btn) {
+      function mark(btn) {
         bs.querySelectorAll('.opt').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
         if (btn) btn.setAttribute('aria-pressed', 'true');
       }
@@ -786,22 +1061,21 @@
           bs.querySelector('[data-pane="mine"]').hidden = tab !== 'mine';
           bs.querySelector('[data-pane="search"]').hidden = tab !== 'search';
           choice = null;
-          mark(null, null);
-          if (tab === 'search') setTimeout(function () { bs.querySelector('#q').focus(); }, 50);
+          mark(null);
           return;
         }
         var m = e.target.closest('[data-mine]');
         if (m) {
           var it = items[Number(m.getAttribute('data-mine'))];
           choice = { title: it.title, place: it.place || '', itemId: String(it.id) };
-          mark(null, m);
+          mark(m);
           return;
         }
         var r = e.target.closest('[data-res]');
         if (r) {
           var p = searchResults[Number(r.getAttribute('data-res'))];
           choice = { title: p.place_name, place: p.road_address_name || p.address_name || '', lat: Number(p.y), lng: Number(p.x), link: p.place_url || '' };
-          mark(null, r);
+          mark(r);
           return;
         }
         var a = e.target.closest('[data-act]');
@@ -816,35 +1090,37 @@
             if (typed) choice = { title: typed, place: '' };
           }
           if (!choice) { toast('갈 곳을 하나 골라주세요'); return; }
+          ensureTrip();
           var st = {
             id: uid(), title: choice.title, place: choice.place || '', link: choice.link || '',
-            itemId: choice.itemId || '', color: color,
+            itemId: choice.itemId || '', color: color, day: dayIdx,
             lat: choice.lat != null ? choice.lat : null, lng: choice.lng != null ? choice.lng : null
           };
           if (time.start != null && time.end != null && time.start !== time.end) { st.start = time.start; st.end = time.end; }
-          course.stops.push(st);
-          saveCourse();
+          trip.stops.push(st);
+          save();
           closeSheet();
           if (st.lat == null && st.place) {
             locate(st.place, function (c) {
-              if (c) { st.lat = c.lat; st.lng = c.lng; saveCourse(); }
-              refresh(true);
+              if (c) { st.lat = c.lat; st.lng = c.lng; save(); }
+              renderAll(true);
             });
           }
-          refresh(true);
+          renderAll(true);
         }
       });
       bs.addEventListener('keydown', function (e) {
         if (e.key === 'Enter' && e.target.id === 'q' && !e.isComposing) { e.preventDefault(); doSearch(); }
       });
+      setTimeout(function () { var q = bs.querySelector('#q'); if (q) q.focus(); }, 80);
     });
   }
   document.getElementById('addBtn').addEventListener('click', openAdd);
 
-  // ---------- 장소 하나 보기·시간 바꾸기·빼기 ----------
+  // ---------- 장소 하나: 시간 바꾸기·빼기 ----------
   function openStop(st) {
     var time = { start: hasTime(st) ? st.start : null, end: hasTime(st) ? st.end : null };
-    var others = course.stops.filter(function (s) { return s !== st; });
+    var others = dayStops().filter(function (s) { return s !== st; });
     var html = '<h2><span class="num" style="background:' + esc(st.color) + ';display:inline-grid;vertical-align:3px;margin-right:6px">' + (ordered().indexOf(st) + 1) + '</span>' + esc(st.title) + '</h2>' +
       (st.place ? '<div class="hint">📍 ' + esc(st.place) + ' <a href="https://map.naver.com/p/search/' + encodeURIComponent(st.place) + '" target="_blank" rel="noopener" style="color:var(--rose);text-decoration:none">지도</a></div>' : '') +
       clockBlock() +
@@ -860,17 +1136,17 @@
         if (act === 'close') closeSheet();
         else if (act === 'clear-time') clock.clear();
         else if (act === 'del') {
-          course.stops = course.stops.filter(function (s) { return s !== st; });
-          saveCourse();
+          trip.stops = trip.stops.filter(function (s) { return s !== st; });
+          save();
           closeSheet();
-          refresh(true);
+          renderAll(true);
           toast('코스에서 뺐어요');
         } else if (act === 'save') {
           if (time.start != null && time.end != null && time.start !== time.end) { st.start = time.start; st.end = time.end; }
           else { delete st.start; delete st.end; }
-          saveCourse();
+          save();
           closeSheet();
-          refresh(false);
+          renderAll(false);
         }
       });
     });
@@ -886,7 +1162,8 @@
   });
   window.addEventListener('pageshow', function () { document.body.classList.remove('switching'); });
 
-  renderStops();
+  trip = store.trips.find(function (t) { return t.id === store.current; }) || store.trips[0] || null;
+  renderAll(false);
   loadKakao();
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
