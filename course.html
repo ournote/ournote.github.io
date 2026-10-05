@@ -1126,7 +1126,7 @@
   // ---------- 2. 지도 ----------
   var map = null, kakaoReady = false, overlays = [], line = null, geocoder = null, places = null, badges = [];
   // 이동 수단 아이콘은 그 구간 선이 화면에서 충분히 길게 보일 때만(확대할수록 짧은 구간도 나타남)
-  var BADGE_MIN_PX = 90;
+  var BADGE_MIN_PX = 240; // 이보다 짧게 보이면 숨김 (한 단계 더 확대하면 나타남)
   function updateBadges() {
     if (!map || !badges.length) return;
     var proj;
