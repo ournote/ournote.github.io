@@ -493,34 +493,28 @@
   var CAT_BY_ID = {};
   CATS.forEach(function (c) { CAT_BY_ID[c.id] = c; });
 
-  function seedItems() {
-    var base = Date.now();
-    var raw = [
-      { cat: 'food', title: '로즈드메 휘낭시에·마들렌', place: '서울 서초구 방배천로4안길 61 1층', link: 'https://instagram.com/_rosedemai', memo: '화–일 11:00–20:00, 월요일 휴무' },
-      { cat: 'food', title: '뻬흐 드 베르 수제 초콜릿(봉봉)', place: '', link: 'https://instagram.com/perledeverre.kr', memo: '부산 수제 초콜릿 가게. 주문·문의는 카카오 채널 pf.kakao.com/_UEFxfG' },
-      { cat: 'food', title: '음음케이크 백조 케이크(Coco Swan)', place: '목포시 하당로68번길 10-1', link: 'https://instagram.com/ummumm_cake', memo: '' },
-      { cat: 'gift', title: '키티케이스', place: '', link: '', memo: '' },
-      { cat: 'gift', title: '내 사진으로 폰케이스', place: '', link: '', memo: '' },
-      { cat: 'surprise', title: '꽃 서프라이즈', place: '', link: '', memo: '' }
-    ];
-    return raw.map(function (r, i) {
-      return normalize({
-        id: 'seed-' + (i + 1) + '-' + base.toString(36),
-        title: r.title, cat: r.cat, place: r.place, link: r.link, memo: r.memo, when: '',
-        done: false, doneAt: '', review: '', createdAt: base + i
-      });
-    });
-  }
+  // 예시 정리(한 번만): 처음에 자동으로 넣었던 예시들(id가 seed-)은 지우고, 예시는 1개만
+  (function () {
+    var EX = { id: 'example-1', title: '예시 · 성수동 소금빵', cat: 'food', place: '서울 성동구 성수동', link: '',
+      memo: '이건 예시예요. 눌러서 고쳐 쓰거나 지워도 돼요. 동그라미를 누르면 ‘했어요’로 체크돼요.',
+      when: '', done: false, doneAt: '', review: '', createdAt: 0 };
+    try {
+      if (localStorage.getItem('ournote:example1')) return;
+      var raw = localStorage.getItem('ournote:items');
+      var list = raw === null ? [] : JSON.parse(raw);
+      if (!Array.isArray(list)) return;
+      list = list.filter(function (x) { return !(x && /^seed-/.test(String(x.id))); });
+      if (!list.some(function (x) { return x && x.id === EX.id; })) list.unshift(EX);
+      localStorage.setItem('ournote:items', JSON.stringify(list));
+      localStorage.setItem('ournote:example1', '1');
+    } catch (e) { /* 저장소를 못 쓰면 건너뜀 */ }
+  })();
 
   // ---------- 저장 ----------
   function load() {
     var raw = null;
     try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { raw = null; }
-    if (raw === null) {
-      var seeded = seedItems();
-      save(seeded);
-      return seeded;
-    }
+    if (raw === null) return [];
     try {
       var parsed = JSON.parse(raw);
       if (!Array.isArray(parsed)) return [];

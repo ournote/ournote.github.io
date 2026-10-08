@@ -567,6 +567,22 @@
 
 
   var STORAGE_KEY = 'ournote:items';
+  // 예시 정리(한 번만): 처음에 자동으로 넣었던 예시들(id가 seed-)은 지우고, 예시는 1개만
+  (function () {
+    var EX = { id: 'example-1', title: '예시 · 성수동 소금빵', cat: 'food', place: '서울 성동구 성수동', link: '',
+      memo: '이건 예시예요. 눌러서 고쳐 쓰거나 지워도 돼요. 동그라미를 누르면 ‘했어요’로 체크돼요.',
+      when: '', done: false, doneAt: '', review: '', createdAt: 0 };
+    try {
+      if (localStorage.getItem('ournote:example1')) return;
+      var raw = localStorage.getItem('ournote:items');
+      var list = raw === null ? [] : JSON.parse(raw);
+      if (!Array.isArray(list)) return;
+      list = list.filter(function (x) { return !(x && /^seed-/.test(String(x.id))); });
+      if (!list.some(function (x) { return x && x.id === EX.id; })) list.unshift(EX);
+      localStorage.setItem('ournote:items', JSON.stringify(list));
+      localStorage.setItem('ournote:example1', '1');
+    } catch (e) { /* 저장소를 못 쓰면 건너뜀 */ }
+  })();
   var PAGE_KEY = 'ournote:v2page';
   var PAGES = [
     { id: 'all', name: '전체' },
@@ -652,7 +668,7 @@
     var groups = sorted(pageItems(all, p.id));
     if (!groups.open.length && !groups.done.length) {
       return '<div class="none">' + (p.id === 'all'
-        ? '아직 약속이 없어요.<br>Ver.1에서 약속을 적으면 여기에 보여요.'
+        ? '아직 약속이 없어요.<br>아래 ‘등록하기’로 적어보세요.'
         : '이 카테고리에는 아직 약속이 없어요.') + '</div>';
     }
     return groups.open.map(function (it) { return rowHtml(it, p.id); }).join('') +
