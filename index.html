@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <script>
   // 마지막으로 보던 버전이 Ver.2면 앱을 켤 때 바로 Ver.2로
-  try { if (localStorage.getItem('ournote:version') === '2') location.replace('/v2.html'); } catch (e) { /* 저장소를 못 쓰면 Ver.1 */ }
+  // 기본 화면은 Ver.2. Ver.1 버튼으로 들어왔을 때만(앱을 다시 켜기 전까지) Ver.1
+  try { if (sessionStorage.getItem('ournote:v1') !== '1') location.replace('/v2.html'); } catch (e) { /* 저장소를 못 쓰면 Ver.1 */ }
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>우리 약속 노트</title>
@@ -438,6 +439,7 @@
   .grip-zone + h2, .grip-zone ~ h2 { touch-action: none; }
   /* 버전 바꾸기 버튼: 맨 아래 가운데 */
   .syncbar { display: flex; justify-content: center; margin-top: 30px; }
+  .syncbar[hidden] { display: none; }
   .verbar { display: flex; justify-content: center; margin-top: 14px; }
   .verbar .verbtn { position: static; display: inline-grid; }
 </style>
@@ -467,7 +469,7 @@
     <input type="file" id="importFile" accept="application/json,.json" hidden>
   </div>
   <a class="maplink-page" href="/map.html">🗺️ 우리가 갈 곳들 →</a>
-  <div class="syncbar"><button type="button" class="syncbtn" data-sync-btn>💞 같이 쓰기</button></div>
+  <div class="syncbar" hidden><button type="button" class="syncbtn" data-sync-btn>💞 같이 쓰기</button></div>
   <div class="verbar"><a class="verbtn" id="verBtn" href="/v2.html" aria-label="버전 2로 전환">Ver.2</a></div>
 </div>
 
@@ -498,12 +500,12 @@
   function seedItems() {
     var base = Date.now();
     var raw = [
-      { cat: 'food', title: '로즈드메 휘낭시에·마들렌 같이 먹기', place: '서울 서초구 방배천로4안길 61 1층', link: 'https://instagram.com/_rosedemai', memo: '화–일 11:00–20:00, 월요일 휴무' },
+      { cat: 'food', title: '로즈드메 휘낭시에·마들렌', place: '서울 서초구 방배천로4안길 61 1층', link: 'https://instagram.com/_rosedemai', memo: '화–일 11:00–20:00, 월요일 휴무' },
       { cat: 'food', title: '뻬흐 드 베르 수제 초콜릿(봉봉)', place: '', link: 'https://instagram.com/perledeverre.kr', memo: '부산 수제 초콜릿 가게. 주문·문의는 카카오 채널 pf.kakao.com/_UEFxfG' },
-      { cat: 'food', title: '음음케이크 백조 케이크(Coco Swan) 해주기', place: '목포시 하당로68번길 10-1', link: 'https://instagram.com/ummumm_cake', memo: '' },
-      { cat: 'gift', title: '키티케이스 만들어주기', place: '', link: '', memo: '' },
-      { cat: 'gift', title: '내 사진으로 폰케이스 만들어주기', place: '', link: '', memo: '' },
-      { cat: 'surprise', title: '꽃 서프라이즈 해주기', place: '', link: '', memo: '' }
+      { cat: 'food', title: '음음케이크 백조 케이크(Coco Swan)', place: '목포시 하당로68번길 10-1', link: 'https://instagram.com/ummumm_cake', memo: '' },
+      { cat: 'gift', title: '키티케이스', place: '', link: '', memo: '' },
+      { cat: 'gift', title: '내 사진으로 폰케이스', place: '', link: '', memo: '' },
+      { cat: 'surprise', title: '꽃 서프라이즈', place: '', link: '', memo: '' }
     ];
     return raw.map(function (r, i) {
       return normalize({
@@ -563,6 +565,19 @@
       review: str(x.review),
       createdAt: isFinite(createdAt) ? createdAt : Date.now()
     };
+  }
+
+  // 제목 끝의 당연한 말(같이 가기·해주기 등)은 떼고 저장 — 카테고리가 이미 말해 주니까
+  // 띄어쓰기 뒤에 붙은 것만, 떼고 나서 두 글자 이상 남을 때만
+  function cleanTitle(t) {
+    t = String(t || '').trim();
+    for (var i = 0; i < 2; i++) {
+      var n = t.replace(/\s+같이\s*(?:가기|먹기|하기|보기|타기|가보기|먹어보기|해보기)$/, '')
+        .replace(/\s+(?:가보기|먹어보기|해보기|해주기|만들어주기|사주기|선물하기|가기|먹기|하기)$/, '').trim();
+      if (n === t || n.replace(/\s/g, '').length < 2) break;
+      t = n;
+    }
+    return t;
   }
 
   function uid() {
@@ -747,7 +762,7 @@
     var selectedCat = data.cat;
 
     var html = '<h2>' + (isNew ? '새 약속' : '약속 고치기') + '</h2>' +
-      field('f-title', '무엇을', data.title, { req: true, ph: '예) 성수동 소금빵 같이 먹기' }) +
+      field('f-title', '무엇을', data.title, { req: true, ph: '예) 성수동 소금빵' }) +
       '<div class="field"><span class="lab">카테고리</span><div class="cats">' +
       CATS.map(function (c) {
         return '<button type="button" class="cat" data-cat="' + c.id + '" aria-pressed="' + (c.id === selectedCat) + '">' + c.emoji + ' ' + esc(c.label) + '</button>';
@@ -795,6 +810,7 @@
           toast('지웠어요');
         } else if (act === 'save') {
           var title = titleInput.value.trim();
+          if (isNew || title !== item.title) title = cleanTitle(title); // 고칠 때는 제목을 바꾼 경우에만
           if (!title) {
             sheet.querySelector('[data-field="f-title"]').classList.add('err');
             titleInput.focus();
@@ -901,7 +917,7 @@
     var href = this.getAttribute('href');
     document.body.classList.add('switching');
     // 버전 전환은 기록을 남기지 않아 스와이프 뒤로가기로 돌아가지 않게
-    try { localStorage.setItem('ournote:version', '2'); } catch (err) { /* 없어도 됨 */ }
+    try { sessionStorage.removeItem('ournote:v1'); } catch (err) { /* 없어도 됨 */ }
     setTimeout(function () { location.replace(href); }, 120);
   });
   window.addEventListener('pageshow', function () { document.body.classList.remove('leaving', 'switching'); });

@@ -493,6 +493,8 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && ov) close(); });
 addStyle();
 updateButtons();
+// '나만 보기'가 생기기 전까지 버튼은 숨겨 둠(이미 연결한 폰만 보임)
+if (state.cid) document.querySelectorAll('.syncbar').forEach((el) => { el.hidden = false; });
 window.addEventListener('online', () => { if (state.cid && status !== 'live') start(); });
 if (state.cid) start();
 

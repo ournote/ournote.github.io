@@ -431,6 +431,10 @@
   .pcat[aria-pressed="true"] { border-color: var(--rose); background: var(--rose-soft); color: var(--rose); font-weight: 600; }
   .pm { font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .dup { display: inline-block; margin-left: 6px; font-size: 11px; color: var(--rose); border: 1px solid var(--rose-soft); border-radius: 6px; padding: 0 5px; vertical-align: 2px; font-family: var(--sans); font-weight: 500; }
+  .cleanlist { max-height: 46vh; overflow: auto; margin-bottom: 6px; }
+  .cl { padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; line-height: 1.5; }
+  .cl s { display: block; color: var(--muted); font-size: 12.5px; }
+  .cl b { font-weight: 600; }
   .note { margin: -6px 0 14px; font-size: 13px; color: var(--muted); line-height: 1.6; word-break: keep-all; }
   .linkbtn {
     display: block;
@@ -487,6 +491,7 @@
   .grip-zone + h2, .grip-zone ~ h2 { touch-action: none; }
   /* 버전 바꾸기 버튼: 맨 아래 가운데 */
   .syncbar { display: flex; justify-content: center; margin-top: 30px; }
+  .syncbar[hidden] { display: none; }
   .verbar { display: flex; justify-content: center; margin-top: 14px; }
   .verbar .verbtn { position: static; display: inline-grid; }
   .maplink-page.next { margin-top: 10px; }
@@ -515,7 +520,7 @@
     </div>
     <a class="maplink-page" id="courseLink" href="/course.html">🧭 데이트 코스 만들기 →</a>
     <a class="maplink-page next" id="mapLink" href="/map.html">🗺️ 우리가 갈 곳들 →</a>
-    <div class="syncbar"><button type="button" class="syncbtn" data-sync-btn>💞 같이 쓰기</button></div>
+    <div class="syncbar" hidden><button type="button" class="syncbtn" data-sync-btn>💞 같이 쓰기</button></div>
     <div class="verbar"><a class="verbtn" id="verBtn" href="/" aria-label="버전 1로 돌아가기">Ver.1</a></div>
   </main>
 </div>
@@ -524,7 +529,7 @@
 <script>
 (function () {
   'use strict';
-  try { localStorage.setItem('ournote:version', '2'); } catch (e) { /* 없어도 됨 */ }
+  try { sessionStorage.removeItem('ournote:v1'); } catch (e) { /* 없어도 됨 */ }
 
   // iOS 사파리는 user-scalable=no를 무시할 때가 있어 두 손가락 확대도 직접 막음
   document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
@@ -535,7 +540,7 @@
     var href = this.getAttribute('href');
     document.body.classList.add('switching');
     // 버전 전환은 기록을 남기지 않아 스와이프 뒤로가기로 돌아가지 않게
-    try { localStorage.setItem('ournote:version', '1'); } catch (err) { /* 없어도 됨 */ }
+    try { sessionStorage.setItem('ournote:v1', '1'); } catch (err) { /* 없어도 됨 */ }
     setTimeout(function () { location.replace(href); }, 120);
   });
   window.addEventListener('pageshow', function () { document.body.classList.remove('switching'); });
@@ -776,6 +781,18 @@
   }
 
   // ---------- 등록하기 ----------
+  // 제목 끝의 당연한 말(같이 가기·해주기 등)은 떼고 저장 — 카테고리가 이미 말해 주니까
+  // 띄어쓰기 뒤에 붙은 것만, 떼고 나서 두 글자 이상 남을 때만
+  function cleanTitle(t) {
+    t = String(t || '').trim();
+    for (var i = 0; i < 2; i++) {
+      var n = t.replace(/\s+같이\s*(?:가기|먹기|하기|보기|타기|가보기|먹어보기|해보기)$/, '')
+        .replace(/\s+(?:가보기|먹어보기|해보기|해주기|만들어주기|사주기|선물하기|가기|먹기|하기)$/, '').trim();
+      if (n === t || n.replace(/\s/g, '').length < 2) break;
+      t = n;
+    }
+    return t;
+  }
   function uid() { return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8); }
 
   function openEditor(item) {
@@ -784,7 +801,7 @@
     var cat = item ? (CAT[item.cat] ? item.cat : 'food') : (CAT[pageId] ? pageId : 'food');
     var v = item || {};
     var html = '<h2>' + (isNew ? '새 약속' : '약속 고치기') + '</h2>' +
-      fld('a-title', '무엇을', { req: true, ph: '예) 성수동 소금빵 같이 먹기', val: v.title }) +
+      fld('a-title', '무엇을', { req: true, ph: '예) 성수동 소금빵', val: v.title }) +
       '<div class="fld"><span class="lab">카테고리</span><div class="cats">' +
       Object.keys(CAT).map(function (k) {
         return '<button type="button" class="cat" data-cat="' + k + '" aria-pressed="' + (k === cat) + '">' + CAT[k].emoji + ' ' + esc(CAT[k].label) + '</button>';
@@ -803,6 +820,7 @@
 
       function save() {
         var t = title.value.trim();
+        if (isNew || t !== item.title) t = cleanTitle(t); // 고칠 때는 제목을 바꾼 경우에만
         if (!t) {
           bs.querySelector('[data-f="a-title"]').classList.add('err');
           title.focus();
@@ -872,7 +890,7 @@
     '[정리 규칙]',
     '- 약속 하나마다 아래 블록 하나, 여러 개면 --- 줄로 구분',
     '- 카테고리는 맛집 / 선물 / 서프라이즈 / 데이트 중 하나',
-    '- 제목은 "무엇을 할지" 짧게 (예: 로즈드메 휘낭시에 같이 먹기, 키티케이스 만들어주기)',
+    '- 제목은 대상만 짧게, "같이 가기·같이 먹기·해주기·만들어주기" 같은 뒷말은 붙이지 않기 (예: 로즈드메 휘낭시에, 꽃 서프라이즈, 그릿비 서생점 오션뷰 카페)',
     '- 메모에는 영업시간·휴무·가격·주문 방법 같은 걸 한 줄로',
     '- 모르는 칸은 줄째로 빼기, 지어내지 않기',
     '',
@@ -1005,10 +1023,11 @@
     else if ((text.match(/^\s*\[약속\s?노트\]/gm) || []).length > 1) blocks = text.split(/^\s*(?=\[약속\s?노트\])/m);
     else if ((text.match(/^\s*(제목|이름)\s*[:：]/gm) || []).length > 1) blocks = text.split(/^\s*(?=(?:제목|이름)\s*[:：])/m);
     else blocks = [text];
-    return blocks.map(function (b) { return b.trim(); }).filter(Boolean).map(parseBlock).filter(Boolean);
+    return blocks.map(function (b) { return b.trim(); }).filter(Boolean).map(parseBlock).filter(Boolean)
+      .map(function (it) { it.title = cleanTitle(it.title); return it; });
   }
 
-  function normTitle(t) { return String(t || '').replace(/\s+/g, '').toLowerCase(); }
+  function normTitle(t) { return cleanTitle(t).replace(/\s+/g, '').toLowerCase(); }
 
   // ---------- 붙여넣기 흐름 ----------
   function startPaste() {
@@ -1265,6 +1284,38 @@
   window.addEventListener('pageshow', function (e) { if (e.persisted) renderAll(false); });
   window.addEventListener('storage', function (e) { if (e.key === STORAGE_KEY) renderAll(false); });
   window.addEventListener('ournote:remote', function () { renderAll(false); }); // 같이 쓰기: 상대가 바꾼 내용
+
+  // 예전에 저장한 제목의 뒷말 정리: 바뀌는 목록을 한 번 보여주고 확인받음
+  var CLEAN_KEY = 'ournote:titlecleaned';
+  function offerTitleClean() {
+    try { if (localStorage.getItem(CLEAN_KEY)) return; } catch (e) { return; }
+    var list = loadRaw();
+    var hits = list.filter(function (x) { return valid(x) && cleanTitle(x.title) !== x.title.trim(); });
+    if (!hits.length) { try { localStorage.setItem(CLEAN_KEY, '1'); } catch (e) { /* 없어도 됨 */ } return; }
+    var html = '<h2>제목 정리</h2>' +
+      '<p class="note">이제 제목 끝의 ‘같이 가기·해주기’ 같은 말은 빼고 저장해요. 예전에 저장한 약속도 이렇게 바꿀까요?</p>' +
+      '<div class="cleanlist">' + hits.map(function (x) {
+        return '<div class="cl"><s>' + esc(x.title) + '</s><b>' + esc(cleanTitle(x.title)) + '</b></div>';
+      }).join('') + '</div>' +
+      '<div class="acts"><button type="button" class="btn" data-act="keep">그대로 두기</button>' +
+      '<button type="button" class="btn pri" data-act="clean">' + hits.length + '개 정리하기</button></div>';
+    openSheet(html, function (bs) {
+      bs.addEventListener('click', function (e) {
+        var a = e.target.closest('[data-act]');
+        if (!a) return;
+        if (a.getAttribute('data-act') === 'clean') {
+          var cur = loadRaw();
+          cur.forEach(function (x) { if (valid(x)) x.title = cleanTitle(x.title); });
+          saveRaw(cur);
+          renderAll(false);
+          toast('제목을 정리했어요');
+        }
+        try { localStorage.setItem(CLEAN_KEY, '1'); } catch (err) { /* 없어도 됨 */ }
+        closeSheet();
+      });
+    });
+  }
+  setTimeout(offerTitleClean, 400);
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     navigator.serviceWorker.register('/sw.js').catch(function () {});
