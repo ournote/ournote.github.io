@@ -243,8 +243,8 @@ async function start() {
     const n = (d.data().members || []).length;
     const joined = members === 1 && n > 1, changed = members !== n;
     members = n;
-    if (joined) toast('연결됐어요 💞');
-    if (changed && ov && !ov.querySelector('.sy-code') && !pendingInvite) paint();
+    if (joined) { toast('연결됐어요 💞'); state.invite = null; saveState(); }
+    if (changed && ov && mode === 'sync' && !pendingInvite) paint();
     setStatus(status);
   }, () => {}));
   COLS.forEach((col) => {
@@ -309,9 +309,12 @@ async function createInvite() {
   for (let i = 0; i < 5; i++) {
     const code = makeCode();
     try {
-      await F.setDoc(F.doc(db, 'invites', code), {
-        cid, by: uid, exp: F.Timestamp.fromMillis(Date.now() + INVITE_HOURS * 3600 * 1000)
-      });
+      const exp = Date.now() + INVITE_HOURS * 3600 * 1000;
+      await F.setDoc(F.doc(db, 'invites', code), { cid, by: uid, exp: F.Timestamp.fromMillis(exp) });
+      // 새 코드로 바꾸면 예전 코드는 바로 못 쓰게
+      if (state.invite && state.invite.code !== code) F.deleteDoc(F.doc(db, 'invites', state.invite.code)).catch(() => {});
+      state.invite = { code, exp };
+      saveState();
       return code;
     } catch (e) {
       if (i === 4) throw e; // 같은 코드가 이미 있으면 다시 뽑기
@@ -386,6 +389,7 @@ const CSS = `
 .sy-dot{width:8px;height:8px;border-radius:50%;background:var(--muted,#7d6f7a)}
 .sy-dot.live{background:var(--ok,#3f7a5a)}
 .sy-dot.error{background:var(--rose,#b5476a)}
+.sy-link{display:block;margin:10px auto 0;border:0;background:none;color:var(--muted,#7d6f7a);font:inherit;font-size:13px;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .sy-close{position:sticky;float:right;top:0;border:0;background:none;color:var(--muted,#7d6f7a);font-size:20px;cursor:pointer;padding:0 4px}
 .syncbtn{border:1px solid var(--line,#e8dfe3);background:var(--paper,#fff);color:var(--ink,#2b2230);border-radius:999px;padding:8px 14px;font:inherit;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
 .syncbtn .sy-dot{width:7px;height:7px}
@@ -461,9 +465,8 @@ function paint() {
       '<div class="sy-stat" data-stat></div>' +
       '<p>둘 중 한 명이 약속을 넣거나 고치면 상대 폰에도 바로 보여요. 인터넷이 없을 때 고친 것도 다시 연결되면 맞춰져요.</p>' +
       (members === 1
-        ? '<div class="sy-div">상대에게 보낼 초대코드</div><button type="button" class="sy-btn pri wide" data-act="invite">초대코드 만들기</button>'
-        : '<div class="sy-div">폰을 바꿨거나 상대가 연결이 끊겼다면</div><button type="button" class="sy-btn wide" data-act="invite">새 초대코드 만들기</button>') +
-      '<div data-codebox></div>' +
+        ? '<div class="sy-div">상대에게 보낼 초대코드</div>' + inviteBlock(true)
+        : '<div class="sy-div">폰을 바꿨거나 상대가 연결이 끊겼다면</div>' + inviteBlock(false)) +
       '<div class="sy-div">그만 같이 쓰기</div>' +
       '<button type="button" class="sy-btn wide danger" data-act="leave">연결 끊기</button>' +
       '<div class="sy-err" data-err></div>';
@@ -471,8 +474,7 @@ function paint() {
   } else {
     s.innerHTML = X + '<h2>💞 같이 쓰기</h2>' +
       '<p>둘이 같은 약속 노트를 함께 써요. 한 명이 초대코드를 만들고, 다른 한 명이 그 코드를 넣으면 연결돼요. 🔒 나만 보기 약속은 상대에게 보이지 않아요.</p>' +
-      '<button type="button" class="sy-btn pri wide" data-act="invite">초대코드 만들기</button>' +
-      '<div data-codebox></div>' +
+      inviteBlock(true) +
       '<div class="sy-div">상대에게 코드를 받았다면</div>' +
       '<div class="sy-row"><input class="sy-in" data-code maxlength="7" placeholder="ABC-123" autocomplete="off" autocapitalize="characters" enterkeyhint="go">' +
       '<button type="button" class="sy-btn pri" data-act="join">연결</button></div>' +
@@ -528,14 +530,19 @@ async function onClick(e) {
   }
 }
 // 초대코드를 만든 순간 커플이 생겨 화면이 '같이 쓰는 중'으로 바뀌지만, 방금 만든 코드는 계속 보여줌
-function paintKeepCode(code) {
-  paint();
-  const box = ov && ov.querySelector('[data-codebox]');
-  if (box) {
-    box.innerHTML = '<div class="sy-code">' + showCode(code) + '</div>' +
-      '<div class="sy-hint">' + INVITE_HOURS + '시간 동안 한 번 쓸 수 있어요 · 상대 폰의 ‘같이 쓰기’에서 넣어주세요</div>' +
-      '<button type="button" class="sy-btn wide" data-act="copy" data-c="' + showCode(code) + '">코드 복사</button>';
+function paintKeepCode() { paint(); }
+// 아직 쓸 수 있는 코드가 있으면 그 코드를 보여주고 '새 코드로 바꾸기', 없으면 '초대코드 만들기'
+function inviteBlock(primary) {
+  const inv = state.invite;
+  if (inv && inv.exp > Date.now() + 60000) {
+    const d = new Date(inv.exp), pad = (n) => (n < 10 ? '0' : '') + n;
+    return '<div class="sy-code">' + showCode(inv.code) + '</div>' +
+      '<div class="sy-hint">' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) +
+      '까지 한 번 쓸 수 있어요 · 상대 폰의 ‘같이 쓰기’에서 넣어주세요</div>' +
+      '<button type="button" class="sy-btn wide" data-act="copy" data-c="' + showCode(inv.code) + '">코드 복사</button>' +
+      '<button type="button" class="sy-link" data-act="invite">🔄 새 코드로 바꾸기</button>';
   }
+  return '<button type="button" class="sy-btn ' + (primary ? 'pri ' : '') + 'wide" data-act="invite">' + (primary ? '초대코드 만들기' : '새 초대코드 만들기') + '</button>';
 }
 
 let pendingInvite = null;
