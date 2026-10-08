@@ -627,6 +627,10 @@
   .sidebtn.spacer { visibility: hidden; } /* 추가하기를 가운데에 두려고 오른쪽 빈자리 */
 
   /* 지나간 일정: 체크한 것처럼, 각자 색을 흐리게 */
+  .stop .who { display: inline-block; vertical-align: 2px; margin-left: 6px; padding: 0 7px; border-radius: 999px; border: 1px solid var(--line); font-family: var(--sans); font-size: 10.5px; font-weight: 500; color: var(--muted); }
+  .stop.clash .tm small { color: var(--rose); }
+  .stop.fresh { animation: freshglow 4s ease-out; }
+  @keyframes freshglow { 0%, 40% { background: var(--rose-soft); border-color: var(--rose); } 100% { background: var(--paper-60); } }
   .stop.past { opacity: .62; }
   .stop.past .tt { color: var(--muted); }
   .stop.past .num { filter: saturate(.35); opacity: .7; }
@@ -1211,9 +1215,38 @@
     }
   }
 
+  // ---------- 같이 쓰기: 상대가 넣은 일정 · 시간 겹침 · 새로 들어온 일정 ----------
+  function syncInfo() { var v = readJSON('ournote:sync', null); return v && v.cid ? v : null; }
+  function byPartner(st) { var si = syncInfo(); return !!(si && si.uid && st.who && st.who !== si.uid); }
+  // 같은 날 시간이 겹치는 일정(따로 짠 코스가 합쳐졌을 때 생길 수 있음)
+  function clashes(list) {
+    var out = {};
+    var timed = list.filter(hasTime);
+    timed.forEach(function (a, i) {
+      timed.slice(i + 1).forEach(function (b) {
+        if (span(a.start, b.start) < span(a.start, a.end) || span(b.start, a.start) < span(b.start, b.end)) { out[a.id] = true; out[b.id] = true; }
+      });
+    });
+    return out;
+  }
+  var freshIds = {};
+  window.addEventListener('ournote:remote', function () {
+    var fresh = readJSON(STORE_KEY, null);
+    if (!fresh || !Array.isArray(fresh.stops)) return;
+    var known = {};
+    store.stops.forEach(function (x) { known[x.id] = true; });
+    fresh.stops.forEach(function (x) { if (!known[x.id]) freshIds[x.id] = true; });
+    store.stops = fresh.stops;
+    if (Array.isArray(fresh.ranges)) store.ranges = fresh.ranges;
+    trip.stops = store.stops;
+    renderAll(false);
+    setTimeout(function () { freshIds = {}; renderStops(); }, 4000);
+  });
+
   // ---------- 3. 코스 목록 ----------
   function renderStops() {
     var list = ordered();
+    var clash = clashes(list);
     var el = document.getElementById('stops');
     document.getElementById('delTrip').hidden = !stopsIn(trip).length;
     if (!list.length) {
@@ -1223,11 +1256,11 @@
     var html = '';
     list.forEach(function (st, i) {
       if (i > 0) html += legHtml(list[i - 1], st);
-      html += '<button type="button" class="stop' + (isPast(st) ? ' past' : '') + '" data-id="' + esc(st.id) + '">' +
+      html += '<button type="button" class="stop' + (isPast(st) ? ' past' : '') + (freshIds[st.id] ? ' fresh' : '') + (clash[st.id] ? ' clash' : '') + '" data-id="' + esc(st.id) + '">' +
         '<span class="num" style="background:' + esc(st.color) + '">' + (i + 1) + '</span>' +
-        '<span class="tx"><span class="tt">' + esc(st.title) + '</span>' +
+        '<span class="tx"><span class="tt">' + esc(st.title) + (byPartner(st) ? '<span class="who">상대</span>' : '') + '</span>' +
         (st.place ? '<span class="mm" style="display:block">📍 ' + esc(st.place) + '</span>' : '<span class="mm noaddr" style="display:block">📍 주소 없음 · 눌러서 추가</span>') + '</span>' +
-        (hasTime(st) ? '<span class="tm">' + hm(st.start) + '–' + hm(st.end) + '<small>' + durText(span(st.start, st.end)) + '</small></span>' : '') +
+        (hasTime(st) ? '<span class="tm">' + hm(st.start) + '–' + hm(st.end) + '<small>' + (clash[st.id] ? '⚠️ 시간 겹침' : durText(span(st.start, st.end))) + '</small></span>' : '') +
         '</button>';
     });
     el.innerHTML = html;

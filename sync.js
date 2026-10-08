@@ -27,8 +27,40 @@ const COLS = [
     key: 'ournote:items',
     valid: (x) => x && typeof x === 'object' && typeof x.id === 'string' && x.id && typeof x.title === 'string' && x.title.trim() !== '',
     local: isPriv // 이 폰에만 두는 항목
+  },
+  {
+    // 데이트 코스 일정(날짜에 붙은 장소 하나하나). 둘이 따로 넣은 것도 전부 합쳐짐
+    name: 'stops',
+    key: 'ournote:course2',
+    valid: (x) => x && typeof x === 'object' && typeof x.id === 'string' && x.id && typeof x.title === 'string',
+    read: () => { const c = courseStore(); return c && Array.isArray(c.stops) ? c.stops : []; },
+    write: (list) => { const c = courseStore() || { stops: [], ranges: [], view: { start: '', end: '' } }; c.stops = list; writeRaw('ournote:course2', c); },
+    stamp: true // 누가 넣었는지(who) 기록
   }
 ];
+// 코스 화면을 아직 안 열어서 예전 형식만 있으면 코스 화면과 같은 방법으로 옮겨 둠(덮어써서 잃지 않게)
+function courseStore() {
+  const c = readJSON('ournote:course2', null);
+  if (c && Array.isArray(c.stops)) return c;
+  const oldT = readJSON('ournote:courses', null);
+  let trips = oldT && Array.isArray(oldT.trips) ? oldT.trips : [];
+  if (!trips.length) {
+    const old = readJSON('ournote:course', null);
+    if (old && Array.isArray(old.stops) && (old.stops.length || old.date)) trips = [{ id: 'old', start: old.date || '', end: old.date || '', stops: old.stops }];
+  }
+  if (!trips.length) return null;
+  const pad = (n) => (n < 10 ? '0' : '') + n;
+  const addDays = (d0, n) => { const p = d0.split('-'); const d = new Date(+p[0], +p[1] - 1, +p[2] + n); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+  const out = { stops: [], ranges: [], view: { start: '', end: '' } };
+  trips.forEach((t) => {
+    (Array.isArray(t.stops) ? t.stops : []).forEach((st) => { st.date = t.start ? addDays(t.start, st.day || 0) : ''; delete st.day; out.stops.push(st); });
+    if (t.start) out.ranges.push({ start: t.start, end: t.end || t.start });
+  });
+  const cur = trips.find((t) => oldT && t.id === oldT.current) || trips[0];
+  if (cur) out.view = { start: cur.start || '', end: cur.end || cur.start || '' };
+  writeRaw('ournote:course2', out);
+  return out;
+}
 const FULL_EVERY = 7 * 864e5;   // 일주일에 한 번은 전체를 맞춰 봄
 const TOMB_KEEP = 30 * 864e5;   // 지움 표시는 30일 뒤 정리
 const OVERLAP = 60 * 1000;      // '바뀐 것만' 물을 때 1분 겹치게
@@ -82,6 +114,7 @@ function firebase() {
     await new Promise((res) => { const off = F.onAuthStateChanged(auth, () => { off(); res(); }); });
     if (!auth.currentUser) await F.signInAnonymously(auth);
     uid = auth.currentUser.uid;
+    if (state.uid !== uid) { state.uid = uid; saveState(); } // 코스 화면에서 '상대가 넣은 일정' 구분용
   })();
   fbPromise.catch(() => { fbPromise = null; });
   return fbPromise;
@@ -95,7 +128,16 @@ let pending = {}; // 서버 확인을 기다리는 쓰기: 'col/id' → canon(�
 const listeners = new Set();
 function setStatus(s) { status = s; listeners.forEach((f) => f()); updateButtons(); }
 
-function localList(col) { const v = readJSON(col.key, []); return Array.isArray(v) ? v : []; }
+function localList(col) { const v = col.read ? col.read() : readJSON(col.key, []); return Array.isArray(v) ? v : []; }
+function writeList(col, list) { if (col.write) col.write(list); else writeRaw(col.key, list); }
+// 새로 넣은 항목에 누가 넣었는지 표시(처음 올릴 때 한 번)
+function stamp(col) {
+  if (!col.stamp || !uid) return;
+  const list = localList(col);
+  let changed = false;
+  list.forEach((x) => { if (col.valid(x) && !x.who) { x.who = uid; changed = true; } });
+  if (changed) writeList(col, list);
+}
 function shared(col, x) { return col.valid(x) && !(col.local && col.local(x)); }
 function localMap(col) {
   const m = {};
@@ -137,6 +179,7 @@ function push(col, id, c) {
 // 내 폰에서 바뀐 것 올리기
 function flush(col) {
   if (!uid || !state.cid) return; // 로그인 전에는 올리지 않음
+  stamp(col);
   const L = localMap(col), B = baseOf(col);
   new Set(Object.keys(L).concat(Object.keys(B))).forEach((id) => { if (L[id] !== B[id]) push(col, id, L[id]); });
 }
@@ -144,6 +187,7 @@ function flush(col) {
 // 서버 상태가 오면 세 갈래 비교
 // full: 서버 전체를 받은 경우(서버에 없는 건 지워진 것), 아니면 R에 든 것(바뀐 것)만 비교
 function reconcile(col, R, full) {
+  stamp(col);
   const list = localList(col);
   const L = localMap(col), B = baseOf(col);
   const ids = full ? new Set(Object.keys(L).concat(Object.keys(B), Object.keys(R))) : new Set(Object.keys(R));
@@ -173,7 +217,7 @@ function reconcile(col, R, full) {
     if (replace[x.id]) next.push(replace[x.id]);
   });
   Object.keys(replace).forEach((id) => { if (!seen[id] && replace[id]) next.push(replace[id]); });
-  writeRaw(col.key, next);
+  writeList(col, next);
   window.dispatchEvent(new CustomEvent('ournote:remote', { detail: { key: col.key } }));
   window.dispatchEvent(new Event('ournote:changed'));
 }
@@ -254,7 +298,7 @@ async function ensureCouple() {
   const ref = F.doc(F.collection(db, 'couples'));
   await F.setDoc(ref, { members: [uid], createdAt: F.serverTimestamp() });
   await F.setDoc(F.doc(db, 'users', uid), { cid: ref.id });
-  state = { cid: ref.id, base: {} }; // base가 비어 있으니 지금 있는 약속이 전부 올라감
+  state = { cid: ref.id, base: {}, uid }; // base가 비어 있으니 지금 있는 약속이 전부 올라감
   saveState();
   start();
   return ref.id;
@@ -295,10 +339,10 @@ async function joinInvite(inv, keepMine) {
   await F.setDoc(F.doc(db, 'users', uid), { cid: inv.cid });
   F.deleteDoc(F.doc(db, 'invites', inv.code)).catch(() => {}); // 한 번 쓴 코드는 없앰
   if (!keepMine) {
-    COLS.forEach((col) => writeRaw(col.key, localList(col).filter((x) => col.valid(x) && !shared(col, x)))); // 나만 보기는 남김
+    COLS.forEach((col) => writeList(col, localList(col).filter((x) => col.valid(x) && !shared(col, x)))); // 나만 보기는 남김
     window.dispatchEvent(new CustomEvent('ournote:remote', { detail: { key: '*' } }));
   }
-  state = { cid: inv.cid, base: {} };
+  state = { cid: inv.cid, base: {}, uid };
   saveState();
   await start();
 }
@@ -307,7 +351,7 @@ async function joinInvite(inv, keepMine) {
 async function leave(silent) {
   const cid = state.cid;
   stop();
-  state = { cid: '', base: {} };
+  state = { cid: '', base: {}, uid };
   saveState();
   setStatus('off');
   if (!cid) return;
@@ -507,8 +551,9 @@ async function onJoin() {
     if (r.error) { err(r.error); return; }
     pendingInvite = r;
     const n = localList(COLS[0]).filter((x) => shared(COLS[0], x)).length; // 나만 보기는 어차피 안 올라감
+    const m = localList(COLS[1]).filter((x) => shared(COLS[1], x)).length;
     const s = sheet();
-    if (!n) {
+    if (!n && !m) {
       await joinInvite(r, true);
       pendingInvite = null;
       paint();
@@ -516,7 +561,7 @@ async function onJoin() {
       return;
     }
     s.innerHTML = '<h2>이 폰에 있던 약속은?</h2>' +
-      '<p>이 폰에 같이 볼 약속이 ' + n + '개 있어요. 상대의 약속과 합칠까요, 아니면 버리고 상대 것만 볼까요? 🔒 나만 보기 약속은 어느 쪽이든 이 폰에 그대로 남아요.</p>' +
+      '<p>이 폰에 같이 볼 ' + [n ? '약속 ' + n + '개' : '', m ? '데이트 코스 일정 ' + m + '개' : ''].filter(Boolean).join(', ') + '가 있어요. 상대 것과 합칠까요, 아니면 버리고 상대 것만 볼까요? 🔒 나만 보기 약속은 어느 쪽이든 이 폰에 그대로 남아요.</p>' +
       '<button type="button" class="sy-btn pri wide" data-act="keep">합치기</button>' +
       '<div style="height:8px"></div>' +
       '<button type="button" class="sy-btn wide" data-act="drop">버리고 상대 것만</button>' +
