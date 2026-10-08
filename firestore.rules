@@ -23,6 +23,15 @@ service cloud.firestore {
       allow delete: if signedIn() && isMember(resource.data.cid);
     }
 
+    // 자동 백업: 복구 코드로 암호화된 덩어리 하나. 주소(코드에서 만듦)를 아는 사람만 읽고 쓰기, 목록 보기·지우기 불가
+    match /backups/{slot} {
+      allow get: if signedIn();
+      allow create, update: if signedIn()
+        && request.resource.data.keys().hasOnly(['d', 'v', 'at'])
+        && request.resource.data.d is string
+        && request.resource.data.d.size() < 1000000;
+    }
+
     match /couples/{cid} {
       allow get: if signedIn() && request.auth.uid in resource.data.members;
       allow create: if signedIn() && request.resource.data.members == [request.auth.uid];
