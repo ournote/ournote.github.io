@@ -1113,7 +1113,7 @@
       warn = diff >= 0 ? '<span class="ok">' + (diff === 0 ? '딱 맞아요' : '여유 ' + minText(diff)) + '</span>'
         : '<span class="bad">⚠️ ' + minText(-diff) + ' 부족</span>';
     }
-    return '<div class="legwrap' + (isPast(cur) ? ' past' : '') + '"><button type="button" class="legpill' + (L.mode ? ' set' : '') + '" data-leg="' + esc(cur.id) + '">' +
+    return '<div class="legwrap' + (dimmed(cur) ? ' past' : '') + '"><button type="button" class="legpill' + (L.mode ? ' set' : '') + '" data-leg="' + esc(cur.id) + '">' +
       bits.join('<i>·</i>') + (warn ? '<i>·</i>' + warn : '') + '</button>' +
       (L.memo ? '<div class="legmemo">' + esc(L.memo) + '</div>' : '') + '</div>';
   }
@@ -1205,6 +1205,9 @@
     end.setMinutes(st.end + (st.end <= st.start ? 1440 : 0)); // 자정을 넘기는 일정
     return Date.now() >= end.getTime();
   }
+  // 전체보기에서 그날 일정이 전부 끝났으면 흐림을 풀고 원래 색으로(지난 코스 다시 보기)
+  function allDone() { var l = ordered(); return l.length > 0 && l.every(isPast); }
+  function dimmed(st) { return isPast(st) && !(focusOn && allDone()); }
   var pastTimer = null;
   function syncPastTimer() {
     clearInterval(pastTimer);
@@ -1256,7 +1259,7 @@
     var html = '';
     list.forEach(function (st, i) {
       if (i > 0) html += legHtml(list[i - 1], st);
-      html += '<button type="button" class="stop' + (isPast(st) ? ' past' : '') + (freshIds[st.id] ? ' fresh' : '') + (clash[st.id] ? ' clash' : '') + '" data-id="' + esc(st.id) + '">' +
+      html += '<button type="button" class="stop' + (dimmed(st) ? ' past' : '') + (freshIds[st.id] ? ' fresh' : '') + (clash[st.id] ? ' clash' : '') + '" data-id="' + esc(st.id) + '">' +
         '<span class="num" style="background:' + esc(st.color) + '">' + (i + 1) + '</span>' +
         '<span class="tx"><span class="tt">' + esc(st.title) + (byPartner(st) ? '<span class="who">상대</span>' : '') + '</span>' +
         (st.place ? '<span class="mm" style="display:block">📍 ' + esc(st.place) + '</span>' : '<span class="mm noaddr" style="display:block">📍 주소 없음 · 눌러서 추가</span>') + '</span>' +
@@ -1374,7 +1377,7 @@
       path.push(pos);
       located.push(st);
       var el = document.createElement('div');
-      el.className = 'pin' + (isPast(st) ? ' past' : '');
+      el.className = 'pin' + (dimmed(st) ? ' past' : '');
       el.style.background = st.color;
       pinEls[st.id] = el;
       el.textContent = String(i + 1);
@@ -1405,7 +1408,7 @@
         path: seg,
         strokeWeight: mv ? 4 : 3,
         strokeColor: '#b5476a',
-        strokeOpacity: isPast(b2) ? 0.22 : (mv ? 0.8 : 0.5),
+        strokeOpacity: dimmed(b2) ? 0.22 : (mv ? 0.8 : 0.5),
         strokeStyle: mv ? mv.line : 'shortdash'
       });
       pl.setMap(map);
@@ -2064,6 +2067,7 @@
       Object.keys(pinEls).forEach(function (k) { pinEls[k].classList.remove('focus'); });
       stopsEl.querySelectorAll('.stop.focus').forEach(function (b) { b.classList.remove('focus'); });
     }
+    renderStops(); // 다 끝난 날이면 전체보기에서 색이 다시 켜짐
     stopsEl.scrollTop = 0;
     window.scrollTo(0, 0);
     setTimeout(function () {
