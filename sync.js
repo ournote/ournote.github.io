@@ -747,7 +747,7 @@ function paintBackup() {
   s.innerHTML = X + '<h2>🗂 자동 백업 켜짐</h2>' +
     '<div class="sy-stat"><span class="sy-dot ' + (bk.lastAt ? 'live' : '') + '"></span>' +
     (bk.lastAt ? '마지막 백업 ' + esc(fmtTime(bk.lastAt)) : '아직 백업 전이에요') + '</div>' +
-    '<p>아래 <b>복구 코드</b>를 꼭 캡처해 두세요. 폰을 바꾸거나 잃어버려도 이 코드만 있으면 그대로 되살릴 수 있어요. 코드를 잃어버리면 아무도(저도) 못 열어요.</p>' +
+    '<p>아래 <b>복구 코드</b>를 꼭 캡처해 두세요. 폰을 바꾸거나 잃어버려도 이 코드만 있으면 그대로 되살릴 수 있어요. 코드를 잃어버리면 백업을 찾을 수도, 되살릴 수도 없어요.</p>' +
     '<div class="sy-code" style="font-size:22px;letter-spacing:2px">' + esc(bk.code) + '</div>' +
     '<button type="button" class="sy-btn wide" data-act="copy" data-c="' + esc(bk.code) + '">복구 코드 복사</button><div style="height:8px"></div>' +
     '<button type="button" class="sy-btn wide" data-act="bk-now">지금 백업하기</button>' +
