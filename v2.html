@@ -361,6 +361,12 @@
     font-size: 12px;
     font-weight: 500;
   }
+  .lock { font-size: .78em; margin-right: 4px; opacity: .75; }
+  .lockchip { background: transparent; border: 1px solid var(--line); color: var(--muted); }
+  .privrow { display: flex; align-items: center; gap: 10px; }
+  .privtog { border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 999px; padding: 7px 13px; font: inherit; font-size: 13.5px; cursor: pointer; flex: 0 0 auto; }
+  .privtog[aria-pressed="true"] { border-color: var(--plum); color: var(--plum); font-weight: 600; }
+  .privnote { font-size: 12px; color: var(--muted); }
   .dtop { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
   .ddone { font-size: 12.5px; color: var(--ok); font-weight: 500; }
   .dl { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
@@ -520,7 +526,7 @@
     </div>
     <a class="maplink-page" id="courseLink" href="/course.html">🧭 데이트 코스 만들기 →</a>
     <a class="maplink-page next" id="mapLink" href="/map.html">🗺️ 우리가 갈 곳들 →</a>
-    <div class="syncbar" hidden><button type="button" class="syncbtn" data-sync-btn>💞 같이 쓰기</button></div>
+    <div class="syncbar"><button type="button" class="syncbtn" data-sync-btn>💞 같이 쓰기</button></div>
     <div class="verbar"><a class="verbtn" id="verBtn" href="/" aria-label="버전 1로 돌아가기">Ver.1</a></div>
   </main>
 </div>
@@ -590,6 +596,9 @@
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); return true; } catch (e) { return false; }
   }
   function valid(x) { return x && typeof x.title === 'string' && x.title.trim() !== ''; }
+  // 🔒 나만 보기: 같이 쓰기를 해도 상대에게 안 보임(서버에 안 올라감). 정한 적 없으면 선물·서프라이즈는 기본 나만 보기
+  var PRIV_CATS = { gift: true, surprise: true };
+  function isPriv(x) { return x.priv === true || (x.priv === undefined && !!PRIV_CATS[x.cat]); }
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function today() {
     var d = new Date();
@@ -625,7 +634,7 @@
     else if (it.when) meta.push('⏳ ' + it.when);
     return '<div class="row' + (it.done === true ? ' done' : '') + '" data-id="' + esc(it.id) + '">' +
       '<button class="ck" type="button" aria-label="' + (it.done === true ? '체크 해제' : '체크') + '">' + CHECK + '</button>' +
-      '<div class="tx"><div class="tt">' + esc(it.title) + '</div>' +
+      '<div class="tx"><div class="tt">' + (isPriv(it) ? '<span class="lock" aria-label="나만 보기">🔒</span>' : '') + esc(it.title) + '</div>' +
       (meta.length ? '<div class="mm">' + esc(meta.join(' · ')) + '</div>' : '') + '</div></div>';
   }
 
@@ -806,6 +815,7 @@
       Object.keys(CAT).map(function (k) {
         return '<button type="button" class="cat" data-cat="' + k + '" aria-pressed="' + (k === cat) + '">' + CAT[k].emoji + ' ' + esc(CAT[k].label) + '</button>';
       }).join('') + '</div></div>' +
+      '<div class="fld privrow"><button type="button" class="privtog" data-priv aria-pressed="false"></button><span class="privnote" data-privnote></span></div>' +
       fld('a-place', '주소', { ph: '지도에서 찾을 주소나 가게 이름', val: v.place }) +
       fld('a-link', '링크', { ph: 'https://', mode: 'url', val: v.link }) +
       fld('a-memo', '메모', { textarea: true, ph: '영업시간, 메뉴, 사이즈 등', val: v.memo }) +
@@ -813,8 +823,16 @@
       '<div class="acts"><button type="button" class="btn" data-act="close">닫기</button>' +
       '<button type="button" class="btn pri" data-act="save">저장</button></div>';
 
+    var priv = isNew ? !!PRIV_CATS[cat] : isPriv(item), privTouched = false;
     openSheet(html, function (bs) {
       var title = bs.querySelector('#a-title');
+      function paintPriv() {
+        var b = bs.querySelector('[data-priv]');
+        b.setAttribute('aria-pressed', String(priv));
+        b.textContent = priv ? '🔒 나만 보기' : '💞 같이 보기';
+        bs.querySelector('[data-privnote]').textContent = priv ? '같이 쓰기를 해도 상대에게 안 보여요' : '같이 쓰기를 하면 상대에게도 보여요';
+      }
+      paintPriv();
       if (isNew) setTimeout(function () { title.focus(); }, 80);
       title.addEventListener('input', function () { bs.querySelector('[data-f="a-title"]').classList.remove('err'); });
 
@@ -832,7 +850,8 @@
           place: bs.querySelector('#a-place').value.trim(),
           link: bs.querySelector('#a-link').value.trim(),
           memo: bs.querySelector('#a-memo').value.trim(),
-          when: bs.querySelector('#a-when').value.trim()
+          when: bs.querySelector('#a-when').value.trim(),
+          priv: priv
         };
         var list = loadRaw();
         if (isNew) {
@@ -858,8 +877,10 @@
         if (c) {
           cat = c.getAttribute('data-cat');
           bs.querySelectorAll('[data-cat]').forEach(function (b) { b.setAttribute('aria-pressed', String(b === c)); });
+          if (isNew && !privTouched) { priv = !!PRIV_CATS[cat]; paintPriv(); } // 직접 바꾸기 전에는 카테고리 기본값을 따라감
           return;
         }
+        if (e.target.closest('[data-priv]')) { priv = !priv; privTouched = true; paintPriv(); return; }
         var a = e.target.closest('[data-act]');
         if (!a) return;
         if (a.getAttribute('data-act') === 'close') closeSheet();
@@ -1175,7 +1196,9 @@
     if (it.when) rows.push('<div class="di"><span class="ic">⏳</span><span class="v">' + esc(it.when) + '</span></div>');
     if (it.done === true && it.review) rows.push('<div class="review">' + esc(it.review) + '</div>');
 
+    var priv = isPriv(it);
     var html = '<div class="dtop"><span class="chip">' + c.emoji + ' ' + esc(c.label) + '</span>' +
+      (priv ? '<span class="chip lockchip">🔒 나만 보기</span>' : '') +
       (it.done === true && it.doneAt ? '<span class="ddone">' + esc(String(it.doneAt).replace(/-/g, '.')) + ' 완료</span>' : '') + '</div>' +
       '<h2>' + esc(it.title) + '</h2>' +
       (rows.length ? '<div class="dl">' + rows.join('') + '</div>' : '<div class="dempty">적어둔 세부내용이 없어요.</div>') +
@@ -1184,7 +1207,8 @@
       '<button type="button" class="btn pri" data-act="edit">수정</button></div>' +
       '<div class="confirm" data-confirm hidden><span>정말 지울까요?</span>' +
       '<button type="button" class="btn" data-act="del-no">아니요</button>' +
-      '<button type="button" class="btn delx" data-act="del-yes">지우기</button></div>';
+      '<button type="button" class="btn delx" data-act="del-yes">지우기</button></div>' +
+      '<button type="button" class="linkbtn" data-act="priv">' + (priv ? '🔓 공개하기 · 같이 쓰기를 하면 상대에게도 보여요' : '🔒 나만 보기로 바꾸기') + '</button>';
     openSheet(html, function (bs) {
       bs.addEventListener('click', function (e) {
         var a = e.target.closest('[data-act]');
@@ -1195,6 +1219,14 @@
         else if (act === 'edit') openEditor(it);
         else if (act === 'del') { box.hidden = false; box.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
         else if (act === 'del-no') box.hidden = true;
+        else if (act === 'priv') {
+          var list = loadRaw();
+          var t = list.find(function (x) { return x && String(x.id) === id; });
+          if (t) { t.priv = !priv; saveRaw(list); renderAll(false); }
+          toast(priv ? '공개했어요' : '나만 보기로 바꿨어요');
+          closeSheet();
+          setTimeout(function () { openDetail(id); }, 280);
+        }
         else if (act === 'del-yes') {
           saveRaw(loadRaw().filter(function (x) { return !(x && String(x.id) === id); }));
           renderAll(false);
