@@ -845,10 +845,11 @@
     // 날짜 없는 일정은 이제 못 만들지만, 예전에 넣어둔 게 남아 있으면 옮길 수 있게 보여줌
     if (store.stops.some(function (s) { return !s.date; })) push({ start: '', end: '' });
     if (trip.start) push(trip);
+    // 최신 날짜가 왼쪽(날짜 없는 예전 일정은 맨 끝)
     out.sort(function (a, b) {
       if (!a.start) return 1;
       if (!b.start) return -1;
-      return a.start < b.start ? -1 : a.start > b.start ? 1 : a.end < b.end ? -1 : 1;
+      return a.start > b.start ? -1 : a.start < b.start ? 1 : a.end > b.end ? -1 : 1;
     });
     return out;
   }
@@ -914,11 +915,11 @@
     if (!list.length || (list.length === 1 && !stopsIn(list[0]).length)) { el.hidden = true; return; }
     el.hidden = false;
     var cur = rkey(trip);
-    el.innerHTML = list.map(function (r) {
+    el.innerHTML = '<button type="button" class="trip new" data-new>+ 새 코스</button>' + list.map(function (r) {
       var n = stopsIn(r).length;
       return '<button type="button" class="trip" data-trip="' + esc(rkey(r)) + '" aria-pressed="' + (rkey(r) === cur) + '">' + esc(tripLabel(r)) +
         (n ? ' · ' + n + '곳' : '') + '</button>';
-    }).join('') + '<button type="button" class="trip new" data-new>+ 새 코스</button>';
+    }).join('');
     var on = el.querySelector('[aria-pressed="true"]');
     if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
@@ -2319,6 +2320,22 @@
     setTimeout(function () { goBackTo(href); }, 120);
   });
   window.addEventListener('pageshow', function () { document.body.classList.remove('switching'); });
+
+  // 들어오면 오늘이거나 앞으로 다가올 코스 중 가장 가까운 것(지난 코스는 안 고름), 없으면 오늘
+  (function openUpcoming() {
+    var today = todayYmd();
+    var next = chipRanges().filter(function (r) { return r.start && (r.end || r.start) >= today && stopsIn(r).length; })
+      .sort(function (a, b) { return a.start < b.start ? -1 : a.start > b.start ? 1 : a.end < b.end ? -1 : 1; })[0];
+    if (next) {
+      trip.start = next.start;
+      trip.end = next.end || next.start;
+      dayIdx = today > trip.start ? Math.round((parse(today) - parse(trip.start)) / 86400000) : 0; // 여행 중이면 오늘 탭
+    } else {
+      trip.start = trip.end = today;
+      dayIdx = 0;
+    }
+    save();
+  })();
 
   renderAll(false);
   loadKakao();
