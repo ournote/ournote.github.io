@@ -373,6 +373,15 @@
 
   /* 원형 시계 */
   .clockwrap { display: flex; flex-direction: column; align-items: center; margin-top: 14px; }
+  .tline { display: flex; justify-content: center; align-items: center; min-height: 46px; margin: 2px 0 6px; }
+  .tval { display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: var(--muted); }
+  .tval[hidden], .tset[hidden], .twarn[hidden] { display: none; }
+  .tbox { position: relative; display: inline-block; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--plum); background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 6px 14px; cursor: pointer; }
+  .tbox input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; border: 0; padding: 0; margin: 0; font-size: 16px; -webkit-appearance: none; appearance: none; cursor: pointer; }
+  .tdur { font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .clockwrap [data-clock] { display: flex; flex-direction: column; align-items: center; width: 100%; }
+  .tset { border: 1px dashed var(--line); background: transparent; color: var(--ink); border-radius: 999px; padding: 9px 16px; font: inherit; font-size: 15px; cursor: pointer; }
+  .twarn { text-align: center; color: var(--rose); font-size: 13px; margin: -2px 0 6px; }
   .clockwrap .lab { align-self: flex-start; font-size: 12.5px; color: var(--muted); margin-bottom: 4px; }
   svg.clock { width: min(260px, 72vw); height: auto; touch-action: none; user-select: none; -webkit-user-select: none; cursor: crosshair; }
   .clock .face { fill: var(--bg); stroke: var(--line); }
@@ -1653,6 +1662,60 @@
   function makeClock(host, color, others, init, onChange) {
     var S = 260, C = S / 2, R = 118, IN = 44;
     var val = { start: init && hasTime(init) ? init.start : null, end: init && hasTime(init) ? init.end : null };
+    // 시계 바로 위 한 줄: 숫자를 누르면 아이폰 시간 돌림판으로 고침(1분 단위). 시계와 서로 연결됨
+    var line = document.createElement('div');
+    line.className = 'tline';
+    line.innerHTML = '<button type="button" class="tset" data-tset>🕐 시간 정하기</button>' +
+      '<span class="tval" data-tval hidden>🕐 ' +
+      '<label class="tbox"><span data-tsl></span><input type="time" data-ts aria-label="시작 시간"></label> ~ ' +
+      '<label class="tbox"><span data-tel></span><input type="time" data-te aria-label="끝 시간"></label> ' +
+      '<span class="tdur" data-tdur></span></span>';
+    host.appendChild(line);
+    var warn = document.createElement('div');
+    warn.className = 'twarn';
+    warn.hidden = true;
+    host.appendChild(warn);
+    var inS = line.querySelector('[data-ts]'), inE = line.querySelector('[data-te]');
+    function toMin(v) { var m = /^(\d{1,2}):(\d{2})/.exec(v || ''); return m ? (+m[1] * 60 + +m[2]) % 1440 : null; }
+    function paintLine() {
+      var has = val.start != null && val.end != null && val.start !== val.end;
+      line.querySelector('[data-tset]').hidden = has;
+      line.querySelector('[data-tval]').hidden = !has;
+      if (has) {
+        // 보이는 숫자는 항상 14:00 형식, 투명한 시간 칸이 위에 겹쳐 있어 누르면 돌림판이 뜸
+        line.querySelector('[data-tsl]').textContent = hm(val.start);
+        line.querySelector('[data-tel]').textContent = hm(val.end);
+        if (document.activeElement !== inS) inS.value = hm(val.start);
+        if (document.activeElement !== inE) inE.value = hm(val.end);
+        line.querySelector('[data-tdur]').textContent = durText(span(val.start, val.end));
+      }
+      // 직접 입력해서 다른 일정과 겹치면 막지 않고 알려줌
+      var hit = has && others.filter(hasTime).find(function (o) {
+        return span(val.start, o.start) < span(val.start, val.end) || span(o.start, val.start) < span(o.start, o.end);
+      });
+      warn.hidden = !hit;
+      if (hit) warn.textContent = '⚠️ ‘' + hit.title + '’와 시간이 겹쳐요';
+    }
+    function fromLine() {
+      var a = toMin(inS.value), b = toMin(inE.value);
+      if (a == null) return;
+      if (b == null || b === a) b = (a + 60) % 1440;
+      val.start = a; val.end = b;
+      paint();
+      onChange(val);
+    }
+    inS.addEventListener('change', fromLine);
+    inE.addEventListener('change', fromLine);
+    line.querySelector('[data-tset]').addEventListener('click', function () {
+      // 앞 일정이 끝나는 시간(없으면 12:00)부터 1시간으로 시작
+      var lastEnd = null;
+      others.filter(hasTime).forEach(function (o) { if (lastEnd == null || o.end > lastEnd) lastEnd = o.end; });
+      val.start = lastEnd != null ? lastEnd : 720;
+      val.end = (val.start + 60) % 1440;
+      paint();
+      onChange(val);
+      setTimeout(function () { try { inS.focus(); } catch (e) { /* 없어도 됨 */ } }, 50);
+    });
     var svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('viewBox', '0 0 ' + S + ' ' + S);
     svg.setAttribute('class', 'clock');
@@ -1702,6 +1765,7 @@
         t1.textContent = '시간 없음';
         t2.textContent = '끌어서 정하기';
       }
+      paintLine();
     }
     function minAt(ev) {
       var r = svg.getBoundingClientRect();
@@ -1765,9 +1829,9 @@
     return { clear: function () { val.start = null; val.end = null; paint(); onChange(val); } };
   }
   function clockBlock() {
-    return '<div class="clockwrap"><span class="lab">시간 (시계를 눌러 시작부터 끝까지 끌어주세요)</span>' +
+    return '<div class="clockwrap"><span class="lab">시간 · 숫자를 누르거나 시계를 끌어서 정해요</span>' +
       '<div data-clock></div>' +
-      '<div class="clocknote">30분 단위 · 같은 날 다른 장소 시간은 옅게 보여요 <button type="button" class="btn ghost" data-act="clear-time">시간 지우기</button></div></div>';
+      '<div class="clocknote">시계는 30분 단위 · 같은 날 다른 장소 시간은 옅게 보여요 <button type="button" class="btn ghost" data-act="clear-time">시간 지우기</button></div></div>';
   }
 
   // ---------- 추가하기 ----------
