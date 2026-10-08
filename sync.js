@@ -766,7 +766,7 @@ function paintBackup() {
     '<p>아래 <b>복구 코드</b>를 꼭 캡처해 두세요. 폰을 바꾸거나 잃어버려도 이 코드만 있으면 그대로 되살릴 수 있어요. 코드를 잃어버리면 백업을 찾을 수도, 되살릴 수도 없어요.</p>' +
     '<div class="sy-code" style="font-size:22px;letter-spacing:2px">' + esc(bk.code) + '</div>' +
     '<button type="button" class="sy-btn wide" data-act="copy" data-c="' + esc(bk.code) + '">복구 코드 복사</button><div style="height:8px"></div>' +
-    '<button type="button" class="sy-btn wide" data-act="bk-now">지금 서버에 저장하기</button>' +
+    '<button type="button" class="sy-btn wide" data-act="bk-now">지금 서버에 저장</button>' +
     '<div class="sy-div">다른 백업에서 되살리기</div>' +
     '<div class="sy-row"><input class="sy-in" data-rcode maxlength="19" placeholder="복구 코드" autocomplete="off" autocapitalize="characters" style="font-size:15px;letter-spacing:1px">' +
     '<button type="button" class="sy-btn pri" data-act="bk-find">찾기</button></div>' +
