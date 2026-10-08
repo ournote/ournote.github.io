@@ -469,7 +469,7 @@
     <input type="file" id="importFile" accept="application/json,.json" hidden>
   </div>
   <a class="maplink-page" href="/map.html">🗺️ 우리가 갈 곳들 →</a>
-  <div class="syncbar" hidden><button type="button" class="syncbtn" data-sync-btn>💞 같이 쓰기</button></div>
+  <div class="syncbar"><button type="button" class="syncbtn" data-sync-btn>💞 같이 쓰기</button></div>
   <div class="verbar"><a class="verbtn" id="verBtn" href="/v2.html" aria-label="버전 2로 전환">Ver.2</a></div>
 </div>
 
@@ -563,7 +563,9 @@
       done: x.done === true,
       doneAt: /^\d{4}-\d{2}-\d{2}$/.test(str(x.doneAt)) ? x.doneAt : '',
       review: str(x.review),
-      createdAt: isFinite(createdAt) ? createdAt : Date.now()
+      createdAt: isFinite(createdAt) ? createdAt : Date.now(),
+      checkedAt: Number(x.checkedAt) || undefined, // Ver.2에서 쓰는 값도 지우지 않게
+      priv: x.priv === true ? true : x.priv === false ? false : undefined // 🔒 나만 보기(Ver.2에서 정함)
     };
   }
 
@@ -674,7 +676,7 @@
 
     return '<article class="card' + (it.done ? ' done' : '') + '" data-id="' + esc(it.id) + '">' +
       '<button class="check" type="button" data-act="check" aria-label="' + (it.done ? '안 한 걸로 되돌리기' : '했어요') + '">' + CHECK_SVG + '</button>' +
-      '<div class="body"><button class="title" type="button" data-act="edit">' + esc(it.title) + '</button>' +
+      '<div class="body"><button class="title" type="button" data-act="edit">' + (it.priv === true || (it.priv === undefined && (it.cat === 'gift' || it.cat === 'surprise')) ? '<span style="font-size:.78em;opacity:.75;margin-right:4px">🔒</span>' : '') + esc(it.title) + '</button>' +
       '<div class="meta">' + rows.join('') + '</div></div></article>';
   }
 

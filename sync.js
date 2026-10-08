@@ -18,13 +18,20 @@ const CODE_ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 헷갈리는 0/O, 1/I �
 const INVITE_HOURS = 24;
 
 // 같이 쓰는 데이터: localStorage 키 ↔ Firestore 하위 컬렉션
+// 🔒 나만 보기: priv가 true이거나, 정한 적 없으면 선물·서프라이즈는 기본으로 나만 보기 → 서버에 안 올림
+const PRIV_CATS = { gift: true, surprise: true };
+function isPriv(x) { return x.priv === true || (x.priv === undefined && !!PRIV_CATS[x.cat]); }
 const COLS = [
   {
     name: 'items',
     key: 'ournote:items',
-    valid: (x) => x && typeof x === 'object' && typeof x.id === 'string' && x.id && typeof x.title === 'string' && x.title.trim() !== ''
+    valid: (x) => x && typeof x === 'object' && typeof x.id === 'string' && x.id && typeof x.title === 'string' && x.title.trim() !== '',
+    local: isPriv // 이 폰에만 두는 항목
   }
 ];
+const FULL_EVERY = 7 * 864e5;   // 일주일에 한 번은 전체를 맞춰 봄
+const TOMB_KEEP = 30 * 864e5;   // 지움 표시는 30일 뒤 정리
+const OVERLAP = 60 * 1000;      // '바뀐 것만' 물을 때 1분 겹치게
 
 // ---------- 작은 유틸 ----------
 const rawSet = Storage.prototype.setItem;
@@ -87,10 +94,15 @@ const listeners = new Set();
 function setStatus(s) { status = s; listeners.forEach((f) => f()); updateButtons(); }
 
 function localList(col) { const v = readJSON(col.key, []); return Array.isArray(v) ? v : []; }
+function shared(col, x) { return col.valid(x) && !(col.local && col.local(x)); }
 function localMap(col) {
   const m = {};
-  localList(col).forEach((x) => { if (col.valid(x)) m[x.id] = canon(x); });
+  localList(col).forEach((x) => { if (shared(col, x)) m[x.id] = canon(x); });
   return m;
+}
+function syncMeta(col) {
+  if (!state.meta) state.meta = {};
+  return state.meta[col.name] || (state.meta[col.name] = { cursor: 0, fullAt: 0 });
 }
 function baseOf(col) { return state.base[col.name] || (state.base[col.name] = {}); }
 function setBase(col, id, c) {
@@ -106,7 +118,10 @@ function push(col, id, c) {
   pending[pk] = mark;
   const cid = state.cid;
   const ref = F.doc(db, 'couples', cid, col.name, docId(id));
-  const p = c === undefined ? F.deleteDoc(ref) : F.setDoc(ref, { j: c, by: uid, at: F.serverTimestamp() });
+  // 지울 때도 문서를 없애지 않고 '지움 표시'를 남겨야 상대가 '바뀐 것만' 물어봐도 알 수 있음
+  const p = F.setDoc(ref, c === undefined
+    ? { id, del: true, by: uid, at: F.serverTimestamp() }
+    : { id, j: c, by: uid, at: F.serverTimestamp() });
   p.then(() => {
     if (pending[pk] === mark) delete pending[pk];
     if (state.cid !== cid) return;
@@ -125,10 +140,11 @@ function flush(col) {
 }
 
 // 서버 상태가 오면 세 갈래 비교
-function reconcile(col, R) {
+// full: 서버 전체를 받은 경우(서버에 없는 건 지워진 것), 아니면 R에 든 것(바뀐 것)만 비교
+function reconcile(col, R, full) {
   const list = localList(col);
   const L = localMap(col), B = baseOf(col);
-  const ids = new Set(Object.keys(L).concat(Object.keys(B), Object.keys(R)));
+  const ids = full ? new Set(Object.keys(L).concat(Object.keys(B), Object.keys(R))) : new Set(Object.keys(R));
   let changed = false;
   const replace = {}; // id → 새 객체(null이면 지움)
   ids.forEach((id) => {
@@ -150,7 +166,7 @@ function reconcile(col, R) {
   const seen = {};
   const next = [];
   list.forEach((x) => {
-    if (!col.valid(x) || !(x.id in replace)) { next.push(x); return; }
+    if (!shared(col, x) || !(x.id in replace)) { next.push(x); return; } // 나만 보기 항목은 절대 안 건드림
     seen[x.id] = true;
     if (replace[x.id]) next.push(replace[x.id]);
   });
@@ -184,16 +200,35 @@ async function start() {
     setStatus(status);
   }, () => {}));
   COLS.forEach((col) => {
-    const off = F.onSnapshot(F.collection(db, 'couples', cid, col.name), { includeMetadataChanges: true }, (snap) => {
+    const meta = syncMeta(col);
+    // 평소에는 마지막으로 받은 뒤 바뀐 것만, 처음이거나 일주일이 지났으면 전체
+    const full = !meta.fullAt || Date.now() - meta.fullAt > FULL_EVERY;
+    const ref = F.collection(db, 'couples', cid, col.name);
+    const q = full ? ref : F.query(ref, F.where('at', '>', F.Timestamp.fromMillis(Math.max(0, meta.cursor - OVERLAP))));
+    let fullDone = false;
+    const off = F.onSnapshot(q, { includeMetadataChanges: true }, (snap) => {
       if (state.cid !== cid) return;
       if (snap.metadata.fromCache) { setStatus('offline'); return; } // 서버에서 확인된 것만 비교
       const R = {};
+      let maxAt = meta.cursor;
       snap.forEach((d) => {
-        const j = d.data().j;
-        if (typeof j !== 'string') return;
-        try { const o = JSON.parse(j); if (col.valid(o)) R[o.id] = canon(o); } catch (e) { /* 깨진 문서 무시 */ }
+        const v = d.data();
+        const id = typeof v.id === 'string' ? v.id : decodeURIComponent(d.id);
+        const at = v.at && v.at.toMillis ? v.at.toMillis() : 0;
+        if (!d.metadata.hasPendingWrites && at > maxAt) maxAt = at;
+        if (v.del) {
+          R[id] = undefined;
+          // 오래된 지움 표시는 정리(전체를 맞출 때만)
+          if (full && at && Date.now() - at > TOMB_KEEP) F.deleteDoc(d.ref).catch(() => {});
+          return;
+        }
+        if (typeof v.j !== 'string') return;
+        try { const o = JSON.parse(v.j); if (col.valid(o)) R[id] = canon(o); } catch (e) { /* 깨진 문서 무시 */ }
       });
-      reconcile(col, R);
+      reconcile(col, R, full); // 전체 모드는 매번 컬렉션 전부가 옴
+      if (full && !fullDone) { fullDone = true; meta.fullAt = Date.now(); }
+      meta.cursor = maxAt;
+      saveState();
       setStatus('live');
     }, (err) => {
       console.warn('sync listen', err);
@@ -256,7 +291,7 @@ async function joinInvite(inv, keepMine) {
   await F.setDoc(F.doc(db, 'users', uid), { cid: inv.cid });
   F.deleteDoc(F.doc(db, 'invites', inv.code)).catch(() => {}); // 한 번 쓴 코드는 없앰
   if (!keepMine) {
-    COLS.forEach((col) => writeRaw(col.key, []));
+    COLS.forEach((col) => writeRaw(col.key, localList(col).filter((x) => col.valid(x) && !shared(col, x)))); // 나만 보기는 남김
     window.dispatchEvent(new CustomEvent('ournote:remote', { detail: { key: '*' } }));
   }
   state = { cid: inv.cid, base: {} };
@@ -376,7 +411,7 @@ function paint() {
     paintStatus();
   } else {
     s.innerHTML = X + '<h2>💞 같이 쓰기</h2>' +
-      '<p>둘이 같은 약속 노트를 함께 써요. 한 명이 초대코드를 만들고, 다른 한 명이 그 코드를 넣으면 연결돼요.</p>' +
+      '<p>둘이 같은 약속 노트를 함께 써요. 한 명이 초대코드를 만들고, 다른 한 명이 그 코드를 넣으면 연결돼요. 🔒 나만 보기 약속은 상대에게 보이지 않아요.</p>' +
       '<button type="button" class="sy-btn pri wide" data-act="invite">초대코드 만들기</button>' +
       '<div data-codebox></div>' +
       '<div class="sy-div">상대에게 코드를 받았다면</div>' +
@@ -460,7 +495,7 @@ async function onJoin() {
     busy(btn, false);
     if (r.error) { err(r.error); return; }
     pendingInvite = r;
-    const n = localList(COLS[0]).filter(COLS[0].valid).length;
+    const n = localList(COLS[0]).filter((x) => shared(COLS[0], x)).length; // 나만 보기는 어차피 안 올라감
     const s = sheet();
     if (!n) {
       await joinInvite(r, true);
@@ -470,7 +505,7 @@ async function onJoin() {
       return;
     }
     s.innerHTML = '<h2>이 폰에 있던 약속은?</h2>' +
-      '<p>이 폰에 약속이 ' + n + '개 있어요. 상대의 약속과 합칠까요, 아니면 버리고 상대 것만 볼까요?</p>' +
+      '<p>이 폰에 같이 볼 약속이 ' + n + '개 있어요. 상대의 약속과 합칠까요, 아니면 버리고 상대 것만 볼까요? 🔒 나만 보기 약속은 어느 쪽이든 이 폰에 그대로 남아요.</p>' +
       '<button type="button" class="sy-btn pri wide" data-act="keep">합치기</button>' +
       '<div style="height:8px"></div>' +
       '<button type="button" class="sy-btn wide" data-act="drop">버리고 상대 것만</button>' +
@@ -493,8 +528,6 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && ov) close(); });
 addStyle();
 updateButtons();
-// '나만 보기'가 생기기 전까지 버튼은 숨겨 둠(이미 연결한 폰만 보임)
-if (state.cid) document.querySelectorAll('.syncbar').forEach((el) => { el.hidden = false; });
 window.addEventListener('online', () => { if (state.cid && status !== 'live') start(); });
 if (state.cid) start();
 
