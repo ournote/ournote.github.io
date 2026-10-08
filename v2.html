@@ -414,6 +414,10 @@
     background: var(--bg);
     transition: opacity .25s ease;
   }
+  .pi { position: relative; }
+  .pi .tt { padding-right: 40px; }
+  .plock { position: absolute; top: 9px; right: 9px; width: 34px; height: 30px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); font-size: 15px; line-height: 1; cursor: pointer; }
+  .plock[aria-pressed="true"] { border-color: var(--plum); }
   .pi.off { opacity: .45; }
   .pi .ck { margin-top: 0; }
   .pi.on .ck { background: var(--rose); border-color: var(--rose); }
@@ -1113,8 +1117,13 @@
       var k = normTitle(it.title);
       it.dup = !!existing[k] || !!seen[k];
       it.on = !it.dup;
+      it.priv = !!PRIV_CATS[it.cat]; // 선물·서프라이즈는 기본 🔒
+      it.privTouched = false;
       seen[k] = true;
     });
+    function lockHtml(it) {
+      return (it.priv ? '🔒' : '💞');
+    }
 
     function cardHtml(it, i) {
       var meta = [];
@@ -1124,6 +1133,7 @@
       if (it.memo) meta.push('📝 ' + it.memo);
       return '<div class="pi' + (it.on ? ' on' : ' off') + '" data-i="' + i + '">' +
         '<button class="ck" type="button" data-act="toggle" aria-label="넣기/빼기">' + CHECK + '</button>' +
+        '<button type="button" class="plock" data-act="lock" aria-pressed="' + it.priv + '" aria-label="나만 보기/같이 보기">' + lockHtml(it) + '</button>' +
         '<div class="tx"><div class="tt">' + esc(it.title) + (it.dup ? '<span class="dup">이미 있음</span>' : '') + '</div>' +
         '<div class="pcats">' + Object.keys(CAT).map(function (k) {
           return '<button type="button" class="pcat" data-cat="' + k + '" aria-pressed="' + (k === it.cat) + '">' + CAT[k].emoji + ' ' + esc(PAGES.find(function (p) { return p.id === k; }).name.replace(/^\S+\s/, '')) + '</button>';
@@ -1134,7 +1144,7 @@
     function countOn() { return items.filter(function (it) { return it.on; }).length; }
 
     var html = '<h2>붙여넣은 약속 ' + items.length + '개</h2>' +
-      '<p class="note">카테고리가 다르면 눌러서 바꾸고, 뺄 건 체크를 풀어주세요.</p>' +
+      '<p class="note">카테고리가 다르면 눌러서 바꾸고, 뺄 건 체크를 풀어주세요. 오른쪽 위 🔒는 나만 보기, 💞는 같이 보기예요.</p>' +
       '<div class="pv">' + items.map(cardHtml).join('') + '</div>' +
       '<div class="acts"><button type="button" class="btn" data-act="close">닫기</button>' +
       '<button type="button" class="btn pri" data-act="save"></button></div>' +
@@ -1149,6 +1159,11 @@
         saveBtn.style.opacity = n ? '' : '.5';
       }
       refreshSave();
+      function paintLock(card, it) {
+        var b = card.querySelector('[data-act="lock"]');
+        b.textContent = lockHtml(it);
+        b.setAttribute('aria-pressed', String(it.priv));
+      }
       bs.addEventListener('click', function (e) {
         var card = e.target.closest('.pi');
         var a = e.target.closest('[data-act]');
@@ -1157,6 +1172,14 @@
           var it = items[Number(card.getAttribute('data-i'))];
           it.cat = c.getAttribute('data-cat');
           card.querySelectorAll('[data-cat]').forEach(function (b) { b.setAttribute('aria-pressed', String(b === c)); });
+          if (!it.privTouched) { it.priv = !!PRIV_CATS[it.cat]; paintLock(card, it); } // 직접 바꾸기 전에는 카테고리 기본값을 따라감
+          return;
+        }
+        if (card && a && a.getAttribute('data-act') === 'lock') {
+          var lk = items[Number(card.getAttribute('data-i'))];
+          lk.priv = !lk.priv;
+          lk.privTouched = true;
+          paintLock(card, lk);
           return;
         }
         if (card && a && a.getAttribute('data-act') === 'toggle') {
@@ -1178,7 +1201,7 @@
           pick.forEach(function (x, i) {
             list.push({
               id: uid(), title: x.title, cat: x.cat, place: x.place, link: x.link, memo: x.memo, when: x.when,
-              done: false, doneAt: '', review: '', createdAt: base + i
+              done: false, doneAt: '', review: '', createdAt: base + i, priv: x.priv
             });
           });
           saveRaw(list);
