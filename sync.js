@@ -69,13 +69,15 @@ let fbPromise = null;
 function firebase() {
   if (fbPromise) return fbPromise;
   fbPromise = (async () => {
-    F = await import('/fb.js');
-    app = F.initializeApp(FIREBASE_CONFIG);
-    auth = F.getAuth(app);
-    db = F.initializeFirestore(app, { localCache: F.memoryLocalCache() });
-    if (localStorage.getItem('ournote:emu') === '1') { // 개발용 에뮬레이터
-      F.connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-      F.connectFirestoreEmulator(db, '127.0.0.1', 8080);
+    if (!F) F = await import('/fb.js');
+    if (!app) { // 초기화는 딱 한 번(로그인이 실패해서 다시 시도할 때도)
+      app = F.initializeApp(FIREBASE_CONFIG);
+      auth = F.getAuth(app);
+      db = F.initializeFirestore(app, { localCache: F.memoryLocalCache() });
+      if (localStorage.getItem('ournote:emu') === '1') { // 개발용 에뮬레이터
+        F.connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+        F.connectFirestoreEmulator(db, '127.0.0.1', 8080);
+      }
     }
     await new Promise((res) => { const off = F.onAuthStateChanged(auth, () => { off(); res(); }); });
     if (!auth.currentUser) await F.signInAnonymously(auth);
@@ -134,7 +136,7 @@ function push(col, id, c) {
 
 // 내 폰에서 바뀐 것 올리기
 function flush(col) {
-  if (!db || !state.cid) return;
+  if (!uid || !state.cid) return; // 로그인 전에는 올리지 않음
   const L = localMap(col), B = baseOf(col);
   new Set(Object.keys(L).concat(Object.keys(B))).forEach((id) => { if (L[id] !== B[id]) push(col, id, L[id]); });
 }
@@ -173,11 +175,13 @@ function reconcile(col, R, full) {
   Object.keys(replace).forEach((id) => { if (!seen[id] && replace[id]) next.push(replace[id]); });
   writeRaw(col.key, next);
   window.dispatchEvent(new CustomEvent('ournote:remote', { detail: { key: col.key } }));
+  window.dispatchEvent(new Event('ournote:changed'));
 }
 
 let flushTimer = null;
 Storage.prototype.setItem = function (k, v) {
   rawSet.call(this, k, v);
+  if (this === localStorage && (k === 'ournote:items' || k === 'ournote:course2')) window.dispatchEvent(new Event('ournote:changed'));
   if (this === localStorage && state.cid && COLS.some((c) => c.key === k)) {
     clearTimeout(flushTimer);
     flushTimer = setTimeout(() => COLS.forEach(flush), 300);
@@ -379,16 +383,26 @@ function paintStatus() {
   const h = ov.querySelector('h2');
   if (h) h.textContent = members === 1 ? '💞 상대를 기다리는 중' : '💞 같이 쓰는 중';
 }
-function open() {
+let mode = 'sync'; // sync | backup
+function open(kind) {
   addStyle();
   close();
+  mode = kind === 'backup' ? 'backup' : 'sync';
   ov = document.createElement('div');
   ov.className = 'sy-ov';
-  ov.innerHTML = '<div class="sy-sheet" role="dialog" aria-modal="true" aria-label="같이 쓰기"></div>';
+  ov.innerHTML = '<div class="sy-sheet" role="dialog" aria-modal="true" aria-label="' + (mode === 'backup' ? '백업' : '같이 쓰기') + '"></div>';
   ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
   document.body.appendChild(ov);
   requestAnimationFrame(() => ov && ov.classList.add('show'));
-  listeners.add(paintStatus);
+  // 이벤트는 한 번만 붙임(다시 그려도 중복되지 않게)
+  const s = sheet();
+  s.addEventListener('click', (e) => { if (mode === 'backup') onBackupClick(e); else onClick(e); });
+  s.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.isComposing) return;
+    if (e.target.matches('[data-code]')) { e.preventDefault(); onJoin(); }
+    else if (e.target.matches('[data-rcode]')) { e.preventDefault(); onRestoreLookup(); }
+  });
+  if (mode === 'sync') listeners.add(paintStatus);
   paint();
 }
 function sheet() { return ov && ov.querySelector('.sy-sheet'); }
@@ -396,6 +410,7 @@ function sheet() { return ov && ov.querySelector('.sy-sheet'); }
 function paint() {
   const s = sheet();
   if (!s) return;
+  if (mode === 'backup') { paintBackup(); return; }
   const X = '<button type="button" class="sy-close" data-x aria-label="닫기">×</button>';
   if (state.cid) {
     s.innerHTML = X + '<h2>💞 같이 쓰는 중</h2>' +
@@ -419,10 +434,6 @@ function paint() {
       '<button type="button" class="sy-btn pri" data-act="join">연결</button></div>' +
       '<div class="sy-err" data-err></div>';
   }
-  s.addEventListener('click', onClick);
-  s.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && e.target.matches('[data-code]') && !e.isComposing) { e.preventDefault(); onJoin(); }
-  });
 }
 function err(msg) { const e = ov && ov.querySelector('[data-err]'); if (e) e.textContent = msg || ''; }
 function busy(btn, on, label) {
@@ -521,14 +532,274 @@ function toast(msg) {
   setTimeout(() => el.classList.remove('show'), 2400);
 }
 
+// ---------- 백업 ----------
+// B. 서버 자동 백업: 복구 코드로 암호화해서 서버의 '내 칸'(주소도 코드에서 만듦)에 최신본 한 개만 저장
+//    → 코드를 모르면 누구도(서버 주인도) 못 열어봄. 🔒 나만 보기 약속과 데이트 코스까지 전부.
+// A. 파일 백업: 'Ournote 백업파일.json'
+const BK_KEY = 'ournote:backup'; // { code, lastHash, lastAt }
+const BK_DATA = ['ournote:items', 'ournote:course2'];
+const BK_DELAY = 30 * 1000;
+let bk = readJSON(BK_KEY, null);
+if (!bk || typeof bk !== 'object') bk = { code: '', lastHash: '', lastAt: 0 };
+function saveBk() { writeRaw(BK_KEY, bk); if (typeof updateBackupButtons === 'function') updateBackupButtons(); }
+
+function makeRecovery() {
+  const a = new Uint32Array(16);
+  crypto.getRandomValues(a);
+  const c = Array.from(a, (n) => CODE_ABC[n % CODE_ABC.length]).join('');
+  return c.match(/.{4}/g).join('-');
+}
+function cleanRecovery(s) { const c = String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); return c.length === 16 ? c.match(/.{4}/g).join('-') : ''; }
+const enc = new TextEncoder();
+function hex(buf) { return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join(''); }
+async function sha(text) { return hex(await crypto.subtle.digest('SHA-256', enc.encode(text))); }
+async function slotId(code) { return sha('ournote-backup-id:' + code); }
+async function aesKey(code) {
+  const base = await crypto.subtle.importKey('raw', enc.encode(code), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: enc.encode('ournote-backup-key'), iterations: 120000, hash: 'SHA-256' },
+    base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+function b64(bytes) { let s = ''; bytes.forEach((b) => { s += String.fromCharCode(b); }); return btoa(s); }
+function unb64(str) { return Uint8Array.from(atob(str), (c) => c.charCodeAt(0)); }
+
+function snapshot() {
+  return { app: 'ournote', v: 2, savedAt: Date.now(), items: readJSON('ournote:items', []), course2: readJSON('ournote:course2', null) };
+}
+function counts(d) {
+  const items = Array.isArray(d.items) ? d.items.length : 0;
+  const stops = d.course2 && Array.isArray(d.course2.stops) ? d.course2.stops.length : 0;
+  return '약속 ' + items + '개 · 코스 일정 ' + stops + '개';
+}
+function fmtTime(ms) {
+  if (!ms) return '';
+  const d = new Date(ms), pad = (n) => (n < 10 ? '0' : '') + n;
+  return (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+
+let bkTimer = null, bkBusy = false;
+async function backupNow(force) {
+  if (!bk.code || bkBusy) return false;
+  const data = snapshot();
+  const h = await sha(canon({ items: data.items, course2: data.course2 }));
+  if (!force && h === bk.lastHash) return true; // 바뀐 게 없으면 안 씀
+  bkBusy = true;
+  try {
+    await firebase();
+    const key = await aesKey(bk.code);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(JSON.stringify(data))));
+    const all = new Uint8Array(iv.length + ct.length);
+    all.set(iv); all.set(ct, iv.length);
+    await F.setDoc(F.doc(db, 'backups', await slotId(bk.code)), { d: b64(all), v: 1, at: F.serverTimestamp() });
+    bk.lastHash = h;
+    bk.lastAt = Date.now();
+    saveBk();
+    if (mode === 'backup' && ov) paintBackup();
+    return true;
+  } catch (e) {
+    console.warn('backup', e);
+    return false;
+  } finally { bkBusy = false; }
+}
+function scheduleBackup(ms) {
+  if (!bk.code) return;
+  clearTimeout(bkTimer);
+  bkTimer = setTimeout(() => backupNow(false), ms);
+}
+async function fetchBackup(code) {
+  await firebase();
+  const snap = await F.getDoc(F.doc(db, 'backups', await slotId(code)));
+  if (!snap.exists()) return null;
+  const all = unb64(snap.data().d);
+  const key = await aesKey(code);
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: all.slice(0, 12) }, key, all.slice(12));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+
+// 되살리기는 '합치기': 백업에 있는 건 넣거나 그 내용으로 바꾸고, 지금 있는 건 지우지 않음
+// (같이 쓰기 중이어도 상대 약속이 사라지지 않게)
+function mergeById(cur, add) {
+  const out = Array.isArray(cur) ? cur.slice() : [];
+  const at = {};
+  out.forEach((x, i) => { if (x && x.id) at[x.id] = i; });
+  (Array.isArray(add) ? add : []).forEach((x) => {
+    if (!x || !x.id) return;
+    if (x.id in at) out[at[x.id]] = x; else { at[x.id] = out.length; out.push(x); }
+  });
+  return out;
+}
+function restoreData(d) {
+  const items = (Array.isArray(d) ? d : d.items || []).filter((x) => x && typeof x.title === 'string' && x.title.trim());
+  localStorage.setItem('ournote:items', JSON.stringify(mergeById(readJSON('ournote:items', []), items)));
+  if (d.course2 && Array.isArray(d.course2.stops)) {
+    const cur = readJSON('ournote:course2', null) || { stops: [], ranges: [], view: d.course2.view || { start: '', end: '' } };
+    cur.stops = mergeById(cur.stops, d.course2.stops);
+    const keyOf = (r) => (r.start || '') + '|' + (r.end || r.start || '');
+    const have = {};
+    (cur.ranges = Array.isArray(cur.ranges) ? cur.ranges : []).forEach((r) => { have[keyOf(r)] = true; });
+    (d.course2.ranges || []).forEach((r) => { if (r && !have[keyOf(r)]) { have[keyOf(r)] = true; cur.ranges.push(r); } });
+    localStorage.setItem('ournote:course2', JSON.stringify(cur));
+  }
+  window.dispatchEvent(new CustomEvent('ournote:remote', { detail: { key: '*' } }));
+}
+
+// A. 파일
+async function saveFile() {
+  const name = 'Ournote 백업파일.json';
+  const blob = new Blob([JSON.stringify(snapshot(), null, 2)], { type: 'application/json' });
+  try {
+    const file = new File([blob], name, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+function pickFile() {
+  return new Promise((res) => {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'application/json,.json';
+    inp.onchange = () => {
+      const f = inp.files && inp.files[0];
+      if (!f) { res(null); return; }
+      const r = new FileReader();
+      r.onload = () => { try { res(JSON.parse(String(r.result || ''))); } catch (e) { res(false); } };
+      r.onerror = () => res(false);
+      r.readAsText(f);
+    };
+    inp.click();
+  });
+}
+
+let restoreFound = null;
+function paintBackup() {
+  const s = sheet();
+  if (!s) return;
+  const X = '<button type="button" class="sy-close" data-x aria-label="닫기">×</button>';
+  if (restoreFound) {
+    s.innerHTML = X + '<h2>백업을 찾았어요</h2>' +
+      '<p>' + esc(counts(restoreFound)) + (restoreFound.savedAt ? ' · ' + esc(fmtTime(restoreFound.savedAt)) + ' 저장' : '') + '</p>' +
+      '<p>지금 이 폰에 있는 건 지우지 않고, 백업에 있는 걸 더하거나 그 내용으로 바꿔요.</p>' +
+      '<button type="button" class="sy-btn pri wide" data-act="bk-apply">이 폰에 되살리기</button><div style="height:8px"></div>' +
+      '<button type="button" class="sy-btn wide" data-act="bk-cancel">취소</button><div class="sy-err" data-err></div>';
+    return;
+  }
+  if (!bk.code) {
+    s.innerHTML = X + '<h2>🗂 백업</h2>' +
+      '<p>자동 백업을 켜면 약속과 데이트 코스가 바뀔 때마다 알아서 서버에 저장돼요. 🔒 나만 보기 약속도 들어가요.</p>' +
+      '<button type="button" class="sy-btn pri wide" data-act="bk-on">자동 백업 켜기</button>' +
+      '<div class="sy-div">폰을 바꿨거나 데이터가 사라졌다면</div>' +
+      '<div class="sy-row"><input class="sy-in" data-rcode maxlength="19" placeholder="복구 코드" autocomplete="off" autocapitalize="characters" style="font-size:15px;letter-spacing:1px">' +
+      '<button type="button" class="sy-btn pri" data-act="bk-find">찾기</button></div>' +
+      '<div class="sy-div">파일로</div>' +
+      '<div class="sy-row"><button type="button" class="sy-btn" style="flex:1" data-act="bk-file">파일로 저장</button>' +
+      '<button type="button" class="sy-btn" style="flex:1" data-act="bk-load">파일 불러오기</button></div>' +
+      '<div class="sy-err" data-err></div>';
+    return;
+  }
+  s.innerHTML = X + '<h2>🗂 자동 백업 켜짐</h2>' +
+    '<div class="sy-stat"><span class="sy-dot ' + (bk.lastAt ? 'live' : '') + '"></span>' +
+    (bk.lastAt ? '마지막 백업 ' + esc(fmtTime(bk.lastAt)) : '아직 백업 전이에요') + '</div>' +
+    '<p>아래 <b>복구 코드</b>를 꼭 캡처해 두세요. 폰을 바꾸거나 잃어버려도 이 코드만 있으면 그대로 되살릴 수 있어요. 코드를 잃어버리면 아무도(저도) 못 열어요.</p>' +
+    '<div class="sy-code" style="font-size:22px;letter-spacing:2px">' + esc(bk.code) + '</div>' +
+    '<button type="button" class="sy-btn wide" data-act="copy" data-c="' + esc(bk.code) + '">복구 코드 복사</button><div style="height:8px"></div>' +
+    '<button type="button" class="sy-btn wide" data-act="bk-now">지금 백업하기</button>' +
+    '<div class="sy-div">다른 백업에서 되살리기</div>' +
+    '<div class="sy-row"><input class="sy-in" data-rcode maxlength="19" placeholder="복구 코드" autocomplete="off" autocapitalize="characters" style="font-size:15px;letter-spacing:1px">' +
+    '<button type="button" class="sy-btn pri" data-act="bk-find">찾기</button></div>' +
+    '<div class="sy-div">파일로</div>' +
+    '<div class="sy-row"><button type="button" class="sy-btn" style="flex:1" data-act="bk-file">파일로 저장</button>' +
+    '<button type="button" class="sy-btn" style="flex:1" data-act="bk-load">파일 불러오기</button></div>' +
+    '<div class="sy-err" data-err></div>';
+}
+
+async function onRestoreLookup() {
+  const inp = ov && ov.querySelector('[data-rcode]');
+  const btn = ov && ov.querySelector('[data-act="bk-find"]');
+  if (!inp) return;
+  const code = cleanRecovery(inp.value);
+  err('');
+  if (!code) { err('복구 코드 16자리를 넣어주세요'); return; }
+  busy(btn, true, '찾는 중…');
+  try {
+    const d = await fetchBackup(code);
+    busy(btn, false);
+    if (!d) { err('이 코드로 저장된 백업이 없어요'); return; }
+    restoreFound = d;
+    restoreFound.code = code;
+    paintBackup();
+  } catch (x) { busy(btn, false); err(x && x.name === 'OperationError' ? '코드가 맞지 않아요' : failText(x)); console.warn(x); }
+}
+
+async function onBackupClick(e) {
+  if (e.target.closest('[data-x]')) { restoreFound = null; close(); return; }
+  const b = e.target.closest('[data-act]');
+  if (!b) return;
+  const act = b.getAttribute('data-act');
+  err('');
+  if (act === 'copy') {
+    const c = b.getAttribute('data-c');
+    try { await navigator.clipboard.writeText(c); b.textContent = '복사했어요'; } catch (x) { b.textContent = c; }
+  } else if (act === 'bk-on') {
+    busy(b, true, '켜는 중…');
+    bk = { code: makeRecovery(), lastHash: '', lastAt: 0 };
+    saveBk();
+    const ok = await backupNow(true);
+    paintBackup();
+    if (!ok) err(failText());
+  } else if (act === 'bk-now') {
+    busy(b, true, '백업하는 중…');
+    const ok = await backupNow(true);
+    busy(b, false);
+    if (ok) toast('백업했어요'); else err(failText());
+  } else if (act === 'bk-find') {
+    onRestoreLookup();
+  } else if (act === 'bk-apply') {
+    const d = restoreFound;
+    restoreData(d);
+    // 이 폰도 앞으로 같은 코드로 백업(폰을 바꾼 경우 그대로 이어짐)
+    if (!bk.code && d.code) bk = { code: d.code, lastHash: '', lastAt: 0 };
+    saveBk();
+    restoreFound = null;
+    paintBackup();
+    toast('되살렸어요');
+    scheduleBackup(2000);
+  } else if (act === 'bk-cancel') {
+    restoreFound = null;
+    paintBackup();
+  } else if (act === 'bk-file') {
+    saveFile();
+  } else if (act === 'bk-load') {
+    const d = await pickFile();
+    if (d === null) return;
+    if (!d || !(Array.isArray(d) || Array.isArray(d.items))) { err('우리 약속 노트 백업 파일이 아니에요'); return; }
+    restoreFound = Array.isArray(d) ? { items: d } : d;
+    paintBackup();
+  }
+}
+
+function updateBackupButtons() {
+  document.querySelectorAll('[data-backup-btn]').forEach((b) => {
+    b.innerHTML = bk.code ? '<span class="sy-dot live"></span>🗂 백업 켜짐' : '🗂 백업';
+  });
+}
+
 // ---------- 시작 ----------
 document.addEventListener('click', (e) => {
-  if (e.target.closest('[data-sync-btn]')) { e.preventDefault(); open(); }
+  if (e.target.closest('[data-sync-btn]')) { e.preventDefault(); open('sync'); }
+  if (e.target.closest('[data-backup-btn]')) { e.preventDefault(); open('backup'); }
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && ov) close(); });
 addStyle();
 updateButtons();
+updateBackupButtons();
+// 자동 백업: 약속·코스가 바뀌면 30초 뒤(그 사이 또 바뀌면 미룸), 앱을 내릴 때는 바로
+window.addEventListener('ournote:changed', () => scheduleBackup(BK_DELAY));
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && bkTimer) { clearTimeout(bkTimer); bkTimer = null; backupNow(false); } });
+if (bk.code) scheduleBackup(5000); // 지난번에 못 올린 게 있으면
 window.addEventListener('online', () => { if (state.cid && status !== 'live') start(); });
 if (state.cid) start();
 
-window.OurSync = { open, status: () => status, state: () => state };
+window.OurSync = { open, status: () => status, state: () => state, backup: () => bk };
