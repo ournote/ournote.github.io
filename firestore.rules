@@ -1,0 +1,50 @@
+rules_version = '2';
+// 우리 약속 노트 — 같이 쓰기 보안 규칙
+// Firebase 콘솔 → Firestore Database → 규칙 탭에 그대로 붙여넣고 '게시'
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function coupleOf(cid) { return get(/databases/$(database)/documents/couples/$(cid)).data; }
+    function isMember(cid) { return signedIn() && request.auth.uid in coupleOf(cid).members; }
+    function invite(code) { return get(/databases/$(database)/documents/invites/$(code)).data; }
+
+    // 내 폰이 어느 커플에 연결돼 있는지
+    match /users/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    // 초대코드: 코드를 아는 사람만 한 개씩 열어볼 수 있음(목록 보기 불가), 최대 25시간
+    match /invites/{code} {
+      allow get: if signedIn();
+      allow create: if isMember(request.resource.data.cid)
+        && request.resource.data.by == request.auth.uid
+        && request.resource.data.exp is timestamp
+        && request.resource.data.exp < request.time + duration.value(25, 'h');
+      allow delete: if signedIn() && isMember(resource.data.cid);
+    }
+
+    match /couples/{cid} {
+      allow get: if signedIn() && request.auth.uid in resource.data.members;
+      allow create: if signedIn() && request.resource.data.members == [request.auth.uid];
+      allow update: if signedIn() && (
+        // 연결 끊기: 멤버가 자기 자신만 뺄 수 있음
+        (request.auth.uid in resource.data.members
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
+          && request.resource.data.members.toSet() == resource.data.members.toSet().difference([request.auth.uid].toSet()))
+        ||
+        // 초대코드로 들어오기: 유효한 코드가 있어야 자기 자신을 추가할 수 있음
+        (!(request.auth.uid in resource.data.members)
+          && resource.data.members.size() < 6
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'code'])
+          && request.resource.data.members == resource.data.members.concat([request.auth.uid])
+          && invite(request.resource.data.code).cid == cid
+          && invite(request.resource.data.code).exp > request.time)
+      );
+
+      // 약속·코스 데이터: 커플 멤버만
+      match /{col}/{docId} {
+        allow read, write: if isMember(cid);
+      }
+    }
+  }
+}

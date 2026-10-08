@@ -486,7 +486,8 @@
   .grip-zone { margin: -10px -20px 0; padding: 10px 20px 2px; touch-action: none; cursor: grab; }
   .grip-zone + h2, .grip-zone ~ h2 { touch-action: none; }
   /* 버전 바꾸기 버튼: 맨 아래 가운데 */
-  .verbar { display: flex; justify-content: center; margin-top: 30px; }
+  .syncbar { display: flex; justify-content: center; margin-top: 30px; }
+  .verbar { display: flex; justify-content: center; margin-top: 14px; }
   .verbar .verbtn { position: static; display: inline-grid; }
   .maplink-page.next { margin-top: 10px; }
 </style>
@@ -514,6 +515,7 @@
     </div>
     <a class="maplink-page" id="courseLink" href="/course.html">🧭 데이트 코스 만들기 →</a>
     <a class="maplink-page next" id="mapLink" href="/map.html">🗺️ 우리가 갈 곳들 →</a>
+    <div class="syncbar"><button type="button" class="syncbtn" data-sync-btn>💞 같이 쓰기</button></div>
     <div class="verbar"><a class="verbtn" id="verBtn" href="/" aria-label="버전 1로 돌아가기">Ver.1</a></div>
   </main>
 </div>
@@ -1262,11 +1264,13 @@
   // Ver.1에서 고치고 돌아오면 다시 읽기
   window.addEventListener('pageshow', function (e) { if (e.persisted) renderAll(false); });
   window.addEventListener('storage', function (e) { if (e.key === STORAGE_KEY) renderAll(false); });
+  window.addEventListener('ournote:remote', function () { renderAll(false); }); // 같이 쓰기: 상대가 바꾼 내용
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     navigator.serviceWorker.register('/sw.js').catch(function () {});
   }
 })();
 </script>
+<script type="module" src="/sync.js"></script>
 </body>
 </html>

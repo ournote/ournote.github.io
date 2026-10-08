@@ -437,7 +437,8 @@
   .grip-zone { margin: -10px -20px 0; padding: 10px 20px 2px; touch-action: none; cursor: grab; }
   .grip-zone + h2, .grip-zone ~ h2 { touch-action: none; }
   /* 버전 바꾸기 버튼: 맨 아래 가운데 */
-  .verbar { display: flex; justify-content: center; margin-top: 30px; }
+  .syncbar { display: flex; justify-content: center; margin-top: 30px; }
+  .verbar { display: flex; justify-content: center; margin-top: 14px; }
   .verbar .verbtn { position: static; display: inline-grid; }
 </style>
 </head>
@@ -466,6 +467,7 @@
     <input type="file" id="importFile" accept="application/json,.json" hidden>
   </div>
   <a class="maplink-page" href="/map.html">🗺️ 우리가 갈 곳들 →</a>
+  <div class="syncbar"><button type="button" class="syncbtn" data-sync-btn>💞 같이 쓰기</button></div>
   <div class="verbar"><a class="verbtn" id="verBtn" href="/v2.html" aria-label="버전 2로 전환">Ver.2</a></div>
 </div>
 
@@ -984,6 +986,9 @@
 
   render();
 
+  // 같이 쓰기: 상대가 바꾼 내용이 들어오면 다시 읽기
+  window.addEventListener('ournote:remote', function () { items = load(); render(); });
+
   // ---------- 서비스 워커 ----------
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     window.addEventListener('load', function () {
@@ -992,5 +997,6 @@
   }
 })();
 </script>
+<script type="module" src="/sync.js"></script>
 </body>
 </html>
