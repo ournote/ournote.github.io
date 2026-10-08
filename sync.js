@@ -330,7 +330,7 @@ async function lookupInvite(input) {
   if (!snap.exists()) return { error: '코드가 맞지 않거나 이미 쓴 코드예요' };
   const d = snap.data();
   if (!d.exp || d.exp.toMillis() < Date.now()) return { error: '시간이 지난 코드예요. 새로 만들어 달라고 해주세요' };
-  if (d.cid === state.cid) return { error: '이미 이 커플과 연결돼 있어요' };
+  if (d.cid === state.cid) return { error: members === 1 ? '내가 만든 코드예요. 상대 폰에서 넣어주세요' : '이미 이 커플과 연결돼 있어요' };
   return { code, cid: d.cid };
 }
 
@@ -353,6 +353,7 @@ async function joinInvite(inv, keepMine) {
 // 끊어도 지금까지의 데이터는 이 폰에 그대로 남음
 async function leave(silent) {
   const cid = state.cid;
+  const inv = state.invite; // 쓰지 않은 초대코드도 같이 없앰
   stop();
   state = { cid: '', base: {}, uid };
   saveState();
@@ -360,6 +361,7 @@ async function leave(silent) {
   if (!cid) return;
   try {
     await firebase();
+    if (inv && inv.code) await F.deleteDoc(F.doc(db, 'invites', inv.code)).catch(() => {});
     await F.updateDoc(F.doc(db, 'couples', cid), { members: F.arrayRemove(uid) });
     await F.deleteDoc(F.doc(db, 'users', uid));
   } catch (e) { if (!silent) console.warn('leave', e); }
@@ -465,19 +467,21 @@ function paint() {
       '<div class="sy-stat" data-stat></div>' +
       '<p>둘 중 한 명이 약속을 넣거나 고치면 상대 폰에도 바로 보여요. 인터넷이 없을 때 고친 것도 다시 연결되면 맞춰져요.</p>' +
       (members === 1
-        ? '<div class="sy-div">상대에게 보낼 초대코드</div>' + inviteBlock(true)
-        : '<div class="sy-div">폰을 바꿨거나 상대가 연결이 끊겼다면</div>' + inviteBlock(false)) +
-      '<div class="sy-div">그만 같이 쓰기</div>' +
-      '<button type="button" class="sy-btn wide danger" data-act="leave">연결 끊기</button>' +
-      '<div class="sy-err" data-err></div>';
+        // 아직 상대가 안 들어왔으면: 내 코드 보내기 또는 상대 코드 넣기
+        ? '<div class="sy-div">상대에게 보낼 초대코드</div>' + inviteBlock(true) +
+          '<div class="sy-div">상대에게 코드를 받았다면</div>' + joinRow() +
+          '<div class="sy-err" data-err></div>' +
+          '<button type="button" class="sy-link" data-act="leave">기다리기 그만하기</button>'
+        : '<div class="sy-div">폰을 바꿨거나 상대가 연결이 끊겼다면</div>' + inviteBlock(false) +
+          '<div class="sy-div">그만 같이 쓰기</div>' +
+          '<button type="button" class="sy-btn wide danger" data-act="leave">연결 끊기</button>' +
+          '<div class="sy-err" data-err></div>');
     paintStatus();
   } else {
     s.innerHTML = X + '<h2>💞 같이 쓰기</h2>' +
       '<p>둘이 같은 약속 노트를 함께 써요. 한 명이 초대코드를 만들고, 다른 한 명이 그 코드를 넣으면 연결돼요. 🔒 나만 보기 약속은 상대에게 보이지 않아요.</p>' +
       inviteBlock(true) +
-      '<div class="sy-div">상대에게 코드를 받았다면</div>' +
-      '<div class="sy-row"><input class="sy-in" data-code maxlength="7" placeholder="ABC-123" autocomplete="off" autocapitalize="characters" enterkeyhint="go">' +
-      '<button type="button" class="sy-btn pri" data-act="join">연결</button></div>' +
+      '<div class="sy-div">상대에게 코드를 받았다면</div>' + joinRow() +
       '<div class="sy-err" data-err></div>';
   }
 }
@@ -522,15 +526,20 @@ async function onClick(e) {
       toast('연결됐어요 💞');
     } catch (x) { busy(b, false); err(failText(x)); console.warn(x); }
   } else if (act === 'leave') {
-    if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '정말 끊을까요? 한 번 더 누르면 끊겨요'; return; }
+    const waiting = members === 1;
+    if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = waiting ? '한 번 더 누르면 초대가 취소돼요' : '정말 끊을까요? 한 번 더 누르면 끊겨요'; return; }
     busy(b, true, '끊는 중…');
     await leave(false);
     paint();
-    toast('연결을 끊었어요 · 지금까지의 약속은 이 폰에 남아 있어요');
+    toast(waiting ? '초대를 취소했어요' : '연결을 끊었어요 · 지금까지의 약속은 이 폰에 남아 있어요');
   }
 }
 // 초대코드를 만든 순간 커플이 생겨 화면이 '같이 쓰는 중'으로 바뀌지만, 방금 만든 코드는 계속 보여줌
 function paintKeepCode() { paint(); }
+function joinRow() {
+  return '<div class="sy-row"><input class="sy-in" data-code maxlength="7" placeholder="ABC-123" autocomplete="off" autocapitalize="characters" enterkeyhint="go">' +
+    '<button type="button" class="sy-btn pri" data-act="join">연결</button></div>';
+}
 // 아직 쓸 수 있는 코드가 있으면 그 코드를 보여주고 '새 코드로 바꾸기', 없으면 '초대코드 만들기'
 function inviteBlock(primary) {
   const inv = state.invite;
