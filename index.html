@@ -621,7 +621,7 @@
 
     var inTab = items.filter(function (i) { return currentTab === 'all' || i.cat === currentTab; });
     var active = inTab.filter(function (i) { return !i.done; })
-      .sort(function (a, b) { return a.createdAt - b.createdAt; });
+      .sort(function (a, b) { return b.createdAt - a.createdAt; }); // 최신이 위
     var done = inTab.filter(function (i) { return i.done; })
       .sort(function (a, b) {
         if (a.doneAt !== b.doneAt) return a.doneAt < b.doneAt ? 1 : -1;
