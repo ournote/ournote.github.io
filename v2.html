@@ -1374,6 +1374,8 @@
     deck.style.scrollBehavior = '';
     goTo(target);
   }
+  // 가로로 넘기기 시작했으면 그동안 화면이 위아래로 같이 움직이지 않게
+  ptitles.addEventListener('touchmove', function (e) { if (pdrag && pdrag.on && e.cancelable) e.preventDefault(); }, { passive: false });
   ptitles.addEventListener('pointerup', pdragEnd);
   ptitles.addEventListener('pointercancel', pdragEnd);
   ptitles.addEventListener('click', function (e) {
