@@ -631,10 +631,10 @@
     });
   }
 
-  // 남은 약속은 적은 순서대로, 체크한 약속은 체크한 순서대로 맨 아래에
+  // 남은 약속은 최신이 위로, 체크한 약속은 체크한 순서대로 맨 아래에
   function sorted(list) {
     var open = list.filter(function (x) { return x.done !== true; })
-      .sort(function (a, b) { return (Number(a.createdAt) || 0) - (Number(b.createdAt) || 0); });
+      .sort(function (a, b) { return (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0); }); // 최신이 위
     var done = list.filter(function (x) { return x.done === true; })
       .sort(function (a, b) {
         var da = String(a.doneAt || ''), db = String(b.doneAt || '');
