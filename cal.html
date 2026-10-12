@@ -123,6 +123,32 @@
   .dot.no { background: var(--no); border-color: var(--no); }
   .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 10px 2px 0; font-size: 12px; color: var(--muted); align-items: center; }
   .legend .dot { display: inline-block; vertical-align: -1px; margin-right: 3px; }
+  /* 고정 일정으로 칠해진 날: 테두리만 진하게 */
+  .dot.auto { background: transparent; border-width: 2px; }
+  .autonote { font-size: 13px; color: var(--ink); background: var(--bg); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; line-height: 1.5; }
+  .autonote small { color: var(--muted); }
+  .rulesbtn { display: flex; align-items: center; gap: 6px; width: 100%; margin-top: 12px; border: 1px solid var(--line); background: var(--paper-60); border-radius: 14px; padding: 11px 14px; font-size: 14.5px; color: var(--plum); font-weight: 600; cursor: pointer; text-align: left; }
+  .rulesbtn #rulesN { color: var(--muted); font-weight: 400; font-size: 13px; }
+  .rulesbtn .arr { margin-left: auto; color: var(--muted); font-size: 18px; }
+  .rlist { display: flex; flex-direction: column; gap: 6px; }
+  .ritem { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); background: var(--bg); border-radius: 12px; padding: 10px 12px; text-align: left; cursor: pointer; width: 100%; }
+  .ritem .t { font-weight: 600; font-size: 14.5px; }
+  .ritem .s { font-size: 12.5px; color: var(--muted); }
+  .seg4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 3px; }
+  .seg4 button { border: 0; background: transparent; border-radius: 9px; padding: 7px 0; font-size: 13.5px; color: var(--muted); cursor: pointer; }
+  .seg4 button[aria-pressed="true"] { background: var(--paper); color: var(--plum); font-weight: 600; box-shadow: var(--shadow); }
+  .wdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .mdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .tog { border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 7px 0; font-size: 13.5px; cursor: pointer; }
+  .tog[aria-pressed="true"] { border-color: var(--rose); background: var(--rose-soft); color: var(--rose); font-weight: 600; }
+  .seq { display: flex; flex-wrap: wrap; gap: 4px; min-height: 34px; align-items: center; border: 1px dashed var(--line); border-radius: 12px; padding: 6px; }
+  .seq .sq { border-radius: 8px; background: var(--bg); border: 1px solid var(--line); padding: 3px 8px; font-size: 13px; }
+  .seq .ph { color: var(--muted); font-size: 12.5px; padding: 0 4px; }
+  .typerow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .maprow { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 13px; }
+  .maprow b { min-width: 40px; }
+  .maprow select, .dateinp { font: inherit; font-size: 14px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 10px; padding: 6px 8px; }
+  .period { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13.5px; }
   .howto { margin: 6px 2px 0; font-size: 12px; color: var(--muted); word-break: keep-all; }
 
   /* 시트 */
@@ -183,6 +209,7 @@
     <span><span class="dot no"></span>안 돼요</span>
     <span>💞 둘 다 돼요</span>
   </div>
+  <button type="button" class="rulesbtn" id="rulesBtn">🔁 고정 일정 <span id="rulesN"></span><span class="arr">›</span></button>
   <p class="howto">날짜를 누를 때마다 돼요 → 일부만 → 안 돼요 → 지움 · 꾹 누르면 자세히(메모·낮/저녁·이날 보자) · 손가락으로 쭉 그으면 한꺼번에</p>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -243,6 +270,57 @@
     if (on) list.push({ id: uid(), date: d });
     writeJSON(DT_KEY, list);
   }
+  // ---------- 고정 일정(반복) ----------
+  // { id, who, kind: weekly|biweekly|monthly|shift, days:[0-6], mdays:[1-31], ch: ok|day|eve|no, note,
+  //   from, until, seq:['주간',…], map:{ 주간: 'eve', … } }  — 직접 표시한 날이 항상 우선
+  var RU_KEY = 'ournote:rules';
+  var CHOICE = { ok: { st: 'ok', part: '' }, day: { st: 'part', part: 'day' }, eve: { st: 'part', part: 'eve' }, no: { st: 'no', part: '' } };
+  var CHOICE_TEXT = { ok: '🟢 돼요', day: '🟡 낮만', eve: '🟡 저녁만', no: '🔴 안 돼요' };
+  var SHIFT_TYPES = [['주간', 'eve'], ['야간', 'no'], ['비번', 'eve'], ['휴무', 'ok']];
+  function ruList() { var v = readJSON(RU_KEY, []); return Array.isArray(v) ? v.filter(function (x) { return x && x.id && x.kind; }) : []; }
+  function dayDiff(a, b) { return Math.round((parse(b) - parse(a)) / 86400000); }
+  function weekStart(s) { var d = parse(s); d.setDate(d.getDate() - d.getDay()); return ymd(d); }
+  function ruleHit(r, d) {
+    var from = r.from || '0000-00-00';
+    if (d < from || (r.until && d > r.until)) return null;
+    var dt = parse(d), ch = r.ch, note = r.note || '';
+    if (r.kind === 'weekly') { if ((r.days || []).indexOf(dt.getDay()) < 0) return null; }
+    else if (r.kind === 'biweekly') {
+      if ((r.days || []).indexOf(dt.getDay()) < 0) return null;
+      if (Math.round(dayDiff(weekStart(from), weekStart(d)) / 7) % 2 !== 0) return null; // 시작 날짜가 있는 주부터 2주마다
+    } else if (r.kind === 'monthly') { if ((r.mdays || []).indexOf(dt.getDate()) < 0) return null; }
+    else if (r.kind === 'shift') {
+      var seq = r.seq || [];
+      if (!seq.length) return null;
+      var name = seq[((dayDiff(from, d) % seq.length) + seq.length) % seq.length];
+      ch = (r.map || {})[name] || 'no';
+      note = name;
+    } else return null;
+    var c = CHOICE[ch] || CHOICE.no;
+    return { st: c.st, part: c.part, note: note, auto: true, rule: r };
+  }
+  function ruleLabel(r) {
+    var dn = (r.days || []).slice().sort().map(function (i) { return WEEK[i]; }).join('·');
+    if (r.kind === 'weekly') return '매주 ' + dn;
+    if (r.kind === 'biweekly') return '격주 ' + dn;
+    if (r.kind === 'monthly') return '매달 ' + (r.mdays || []).slice().sort(function (a, b) { return a - b; }).join('·') + '일';
+    if (r.kind === 'shift') return '교대 ' + (r.seq || []).length + '일 순환';
+    return '';
+  }
+  // 그날 실제 상태: 직접 표시 > 고정 일정
+  function effOn(d, mine, av, rules) {
+    var ex = mine ? mineOn(d, av) : theirsOn(d, av);
+    if (ex) return ex;
+    // 고정 일정이 여러 개 겹치면 더 빡빡한 쪽(안 돼요 > 일부만 > 돼요)
+    var rank = { no: 3, part: 2, ok: 1 }, best = null;
+    (rules || ruList()).forEach(function (r) {
+      if (isMine(r) !== mine) return;
+      var m = ruleHit(r, d);
+      if (m && (!best || rank[m.st] >= rank[best.st])) best = m;
+    });
+    return best;
+  }
+
   function free(x) { return !!x && (x.st === 'ok' || x.st === 'part'); }
   // 둘 다 되는지 + 언제(종일/낮/저녁)
   function bothLabel(a, b) {
@@ -267,13 +345,16 @@
         '<span class="dd">' + (dd === 0 ? '오늘!' : 'D-' + dd) + '</span></div>' +
         '<div style="margin-top:4px"><a href="/course.html?date=' + conf + '" data-go="course">코스 보러 가기 →</a></div>';
     }
-    if (!connected() && !list.some(function (x) { return !isMine(x); })) {
+    var rules = ruList();
+    if (!connected() && !list.some(function (x) { return !isMine(x); }) && !rules.some(function (x) { return !isMine(x); })) {
       html += '<div class="lab">둘 다 되는 날</div><div class="muted">💞 같이 쓰기를 연결하면 상대가 표시한 날도 보이고, 둘 다 되는 날을 찾아줘요. 지금은 내 일정만 적을 수 있어요.</div>';
     } else {
-      var days = {};
-      list.forEach(function (x) { if (x.date >= t) days[x.date] = true; });
-      var hits = Object.keys(days).sort().map(function (d) { return { d: d, l: bothLabel(mineOn(d, list), theirsOn(d, list)) }; })
-        .filter(function (h) { return h.l && h.d !== conf; }).slice(0, 6);
+      var hits = [], dd0 = parse(t);
+      for (var k = 0; k < 120 && hits.length < 6; k++) {
+        var d = ymd(new Date(dd0.getFullYear(), dd0.getMonth(), dd0.getDate() + k));
+        var l = bothLabel(effOn(d, true, list, rules), effOn(d, false, list, rules));
+        if (l && d !== conf) hits.push({ d: d, l: l });
+      }
       html += '<div class="lab">둘 다 되는 날</div>' + (hits.length
         ? '<div class="chips">' + hits.map(function (h) { return '<button type="button" class="chip" data-day="' + h.d + '">' + esc(mdShort(h.d)) + '<small>' + h.l + '</small></button>'; }).join('') + '</div>'
         : '<div class="muted">아직 없어요. 각자 되는 날을 눌러서 표시해 보세요.</div>');
@@ -285,14 +366,14 @@
   var shown = new Date(); shown = new Date(shown.getFullYear(), shown.getMonth(), 1);
   function renderGrid() {
     document.getElementById('monthT').textContent = shown.getFullYear() + '년 ' + (shown.getMonth() + 1) + '월';
-    var t = today(), list = avList(), conf = {};
+    var t = today(), list = avList(), rules = ruList(), conf = {};
     dtList().forEach(function (x) { conf[x.date] = true; });
     var h = WEEK.map(function (w, i) { return '<div class="wk' + (i === 0 ? ' sun' : '') + '">' + w + '</div>'; }).join('');
     var first = shown.getDay(), dim = new Date(shown.getFullYear(), shown.getMonth() + 1, 0).getDate();
     for (var i = 0; i < first; i++) h += '<div class="cell out"></div>';
     for (var dn = 1; dn <= dim; dn++) {
       var dt = new Date(shown.getFullYear(), shown.getMonth(), dn), d = ymd(dt);
-      var me = mineOn(d, list), th = theirsOn(d, list);
+      var me = effOn(d, true, list, rules), th = effOn(d, false, list, rules);
       var cls = ['cell'];
       if (dt.getDay() === 0) cls.push('sun');
       if (d === t) cls.push('today');
@@ -300,11 +381,12 @@
       if (bothLabel(me, th)) cls.push('both');
       if (conf[d]) cls.push('conf');
       h += '<div class="' + cls.join(' ') + '" data-d="' + d + '"><span class="n">' + dn + '</span>' +
-        '<span class="dots"><span class="dot' + (me ? ' ' + me.st : '') + '"></span><span class="dot them' + (th ? ' ' + th.st : '') + '"></span></span></div>';
+        '<span class="dots"><span class="dot' + (me ? ' ' + me.st + (me.auto ? ' auto' : '') : '') + '"></span>' +
+        '<span class="dot them' + (th ? ' ' + th.st + (th.auto ? ' auto' : '') : '') + '"></span></span></div>';
     }
     document.getElementById('grid').innerHTML = h;
   }
-  function renderAll() { renderSummary(); renderGrid(); }
+  function renderAll() { renderSummary(); renderGrid(); renderRulesBtn(); }
   document.getElementById('prevM').addEventListener('click', function () { shown = new Date(shown.getFullYear(), shown.getMonth() - 1, 1); renderGrid(); });
   document.getElementById('nextM').addEventListener('click', function () { shown = new Date(shown.getFullYear(), shown.getMonth() + 1, 1); renderGrid(); });
 
@@ -373,13 +455,15 @@
 
   // ---------- 하루 자세히 ----------
   function openDay(d) {
-    var me = mineOn(d), th = theirsOn(d);
+    var me = mineOn(d), th = effOn(d, false), meAuto = me ? null : effOn(d, true);
     var st = me ? me.st : '', part = me ? (me.part || '') : '', note = me ? (me.note || '') : '';
     var past = d < today();
-    var thText = th ? (ST_TEXT[th.st] || '') + (th.st === 'part' && th.part ? ' · ' + PART_TEXT[th.part] : '') + (th.note ? ' · ‘' + th.note + '’' : '')
+    function desc(x) { return (ST_TEXT[x.st] || '') + (x.st === 'part' && x.part ? ' · ' + PART_TEXT[x.part] : '') + (x.note ? ' · ‘' + x.note + '’' : ''); }
+    var thText = th ? desc(th) + (th.auto ? ' (🔁 ' + ruleLabel(th.rule) + ')' : '')
       : (connected() ? '아직 표시 안 했어요' : '같이 쓰기를 연결하면 보여요');
     var html = '<h2>' + esc(mdw(d)) + '</h2>' +
       '<div class="who">나</div>' +
+      (meAuto ? '<div class="autonote">🔁 고정 일정(' + esc(ruleLabel(meAuto.rule)) + '): ' + esc(desc(meAuto)) + '<br><small>아래에서 고르면 이날만 바꿔요</small></div>' : '') +
       '<div class="states">' + ['ok', 'part', 'no', ''].map(function (k) {
         return '<button type="button" class="st" data-st="' + k + '" aria-pressed="' + (st === k) + '">' +
           (k === 'ok' ? '🟢 돼요' : k === 'part' ? '🟡 일부만' : k === 'no' ? '🔴 안 돼요' : '지우기') + '</button>';
@@ -402,7 +486,7 @@
         } else if (past) {
           box.hidden = true;
         } else {
-          var both = bothLabel({ st: st, part: part }, th);
+          var both = bothLabel(st ? { st: st, part: part } : meAuto, th);
           box.innerHTML = (both ? '<div class="msg">둘 다 돼요 · ' + both + '</div>' : '') +
             '<button type="button" class="btn ' + (both ? 'pri' : '') + ' wide" data-act="confirm">💞 이날 보자</button>';
         }
@@ -438,6 +522,128 @@
         } else if (act === 'unconfirm') {
           setConfirmed(d, false);
           renderAll(); paintConfirm(); toast('확정을 취소했어요');
+        }
+      });
+    });
+  }
+
+  // ---------- 고정 일정 목록 · 편집 ----------
+  function renderRulesBtn() {
+    var n = ruList().filter(isMine).length;
+    document.getElementById('rulesN').textContent = n ? n + '개' : '없음 · 수업·근무를 한 번만 정해 두기';
+  }
+  document.getElementById('rulesBtn').addEventListener('click', openRules);
+  function openRules() {
+    var mine = ruList().filter(isMine);
+    var html = '<h2>🔁 내 고정 일정</h2>' +
+      '<p class="muted" style="margin:0 0 10px">매주·격주·매달·교대 근무처럼 반복되는 일정을 한 번만 정해 두면 달력에 자동으로 칠해져요. 그날만 다르면 달력에서 그날을 눌러 바꾸면 돼요.</p>' +
+      '<div class="rlist">' + (mine.length ? mine.map(function (r) {
+        var sub = r.kind === 'shift' ? (r.seq || []).join('→') : (CHOICE_TEXT[r.ch] || '') + (r.note ? ' · ' + r.note : '');
+        sub += r.until ? ' · ' + mdShort(r.until) + '까지' : '';
+        return '<button type="button" class="ritem" data-rid="' + esc(r.id) + '"><span><div class="t">' + esc(ruleLabel(r)) + '</div><div class="s">' + esc(sub) + '</div></span></button>';
+      }).join('') : '<div class="muted">아직 없어요.</div>') + '</div>' +
+      '<div class="acts"><button type="button" class="btn" data-act="close">닫기</button><button type="button" class="btn pri" data-act="add">＋ 추가</button></div>';
+    openSheet(html, function (bs) {
+      bs.addEventListener('click', function (e) {
+        var it = e.target.closest('[data-rid]');
+        if (it) { var r = ruList().filter(function (x) { return x.id === it.getAttribute('data-rid'); })[0]; closeSheet(); setTimeout(function () { openRule(r); }, 120); return; }
+        var a = e.target.closest('[data-act]');
+        if (!a) return;
+        if (a.getAttribute('data-act') === 'close') closeSheet();
+        else { closeSheet(); setTimeout(function () { openRule(null); }, 120); }
+      });
+    });
+  }
+  function openRule(orig) {
+    var r = orig ? JSON.parse(JSON.stringify(orig)) : { kind: 'weekly', days: [], mdays: [], ch: 'no', note: '', from: today(), until: '', seq: [], map: {} };
+    if (!r.map) r.map = {};
+    SHIFT_TYPES.forEach(function (t) { if (!r.map[t[0]]) r.map[t[0]] = t[1]; });
+    var html = '<h2>' + (orig ? '고정 일정 고치기' : '고정 일정 추가') + '</h2>' +
+      '<div class="who">반복</div><div class="seg4" data-kinds>' + [['weekly', '매주'], ['biweekly', '격주'], ['monthly', '매달'], ['shift', '교대 근무']].map(function (k) {
+        return '<button type="button" data-kind="' + k[0] + '">' + k[1] + '</button>';
+      }).join('') + '</div>' +
+      '<div data-pane="week"><div class="who" data-weeklab>요일</div><div class="wdays">' + WEEK.map(function (w, i) {
+        return '<button type="button" class="tog" data-wd="' + i + '">' + w + '</button>';
+      }).join('') + '</div></div>' +
+      '<div data-pane="month"><div class="who">날짜</div><div class="mdays">' + Array.apply(null, Array(31)).map(function (_, i) {
+        return '<button type="button" class="tog" data-md="' + (i + 1) + '">' + (i + 1) + '</button>';
+      }).join('') + '</div></div>' +
+      '<div data-pane="shift"><div class="who">근무 순서 (눌러서 차례대로 쌓기)</div><div class="seq" data-seq></div>' +
+        '<div class="typerow">' + SHIFT_TYPES.map(function (t) { return '<button type="button" class="tog" style="padding:6px 12px" data-addt="' + t[0] + '">＋ ' + t[0] + '</button>'; }).join('') +
+        '<button type="button" class="tog" style="padding:6px 12px" data-act="seqback">⌫ 하나 지우기</button></div>' +
+        '<div class="who">근무마다 데이트는?</div><div data-maps></div></div>' +
+      '<div data-pane="state"><div class="who">그날은</div><div class="seg4" data-chs>' + ['ok', 'day', 'eve', 'no'].map(function (k) {
+        return '<button type="button" data-ch="' + k + '">' + CHOICE_TEXT[k] + '</button>';
+      }).join('') + '</div>' +
+      '<input class="memo" data-rnote maxlength="20" placeholder="메모 (예: 수업, 알바, 필라테스)" value="' + esc(r.note || '') + '"></div>' +
+      '<div class="who" data-fromlab>기간</div><div class="period"><input type="date" class="dateinp" data-from value="' + esc(r.from || today()) + '"> ~ ' +
+        '<input type="date" class="dateinp" data-until value="' + esc(r.until || '') + '"><span class="muted">(끝 날짜 비우면 계속)</span></div>' +
+      '<div class="acts">' + (orig ? '<button type="button" class="btn ghost" data-act="del">삭제</button><span class="sp"></span>' : '') +
+        '<button type="button" class="btn" data-act="close">닫기</button><button type="button" class="btn pri" data-act="save">저장</button></div>';
+    openSheet(html, function (bs) {
+      function paint() {
+        bs.querySelectorAll('[data-kind]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-kind') === r.kind)); });
+        bs.querySelector('[data-pane="week"]').hidden = !(r.kind === 'weekly' || r.kind === 'biweekly');
+        bs.querySelector('[data-pane="month"]').hidden = r.kind !== 'monthly';
+        bs.querySelector('[data-pane="shift"]').hidden = r.kind !== 'shift';
+        bs.querySelector('[data-pane="state"]').hidden = r.kind === 'shift';
+        bs.querySelector('[data-weeklab]').textContent = r.kind === 'biweekly' ? '요일 (시작 날짜가 있는 주부터 2주마다)' : '요일';
+        bs.querySelector('[data-fromlab]').textContent = r.kind === 'shift' ? '순서 첫날 ~ 끝 (첫날이 순서의 맨 앞 근무)' : '기간';
+        bs.querySelectorAll('[data-wd]').forEach(function (b) { b.setAttribute('aria-pressed', String((r.days || []).indexOf(+b.getAttribute('data-wd')) >= 0)); });
+        bs.querySelectorAll('[data-md]').forEach(function (b) { b.setAttribute('aria-pressed', String((r.mdays || []).indexOf(+b.getAttribute('data-md')) >= 0)); });
+        bs.querySelectorAll('[data-ch]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-ch') === r.ch)); });
+        var seq = r.seq || [];
+        bs.querySelector('[data-seq]').innerHTML = seq.length ? seq.map(function (x, i) { return '<span class="sq">' + (i + 1) + '. ' + esc(x) + '</span>'; }).join('') : '<span class="ph">예) 주간 → 주간 → 야간 → 야간 → 비번 → 휴무</span>';
+        var used = {};
+        seq.forEach(function (x) { used[x] = true; });
+        bs.querySelector('[data-maps]').innerHTML = Object.keys(used).length ? Object.keys(used).map(function (n) {
+          return '<div class="maprow"><b>' + esc(n) + '</b><select data-map="' + esc(n) + '">' + ['ok', 'day', 'eve', 'no'].map(function (k) {
+            return '<option value="' + k + '"' + (r.map[n] === k ? ' selected' : '') + '>' + CHOICE_TEXT[k] + '</option>';
+          }).join('') + '</select></div>';
+        }).join('') : '<div class="muted">순서를 쌓으면 여기서 정할 수 있어요.</div>';
+      }
+      paint();
+      bs.addEventListener('change', function (e) {
+        var m = e.target.closest('[data-map]');
+        if (m) r.map[m.getAttribute('data-map')] = m.value;
+      });
+      bs.addEventListener('click', function (e) {
+        var k = e.target.closest('[data-kind]');
+        if (k) { r.kind = k.getAttribute('data-kind'); paint(); return; }
+        var w = e.target.closest('[data-wd]');
+        if (w) { var i = +w.getAttribute('data-wd'), a = r.days || (r.days = []); var at = a.indexOf(i); if (at >= 0) a.splice(at, 1); else a.push(i); paint(); return; }
+        var md = e.target.closest('[data-md]');
+        if (md) { var j = +md.getAttribute('data-md'), b = r.mdays || (r.mdays = []); var bt = b.indexOf(j); if (bt >= 0) b.splice(bt, 1); else b.push(j); paint(); return; }
+        var c = e.target.closest('[data-ch]');
+        if (c) { r.ch = c.getAttribute('data-ch'); paint(); return; }
+        var t = e.target.closest('[data-addt]');
+        if (t) { (r.seq || (r.seq = [])).push(t.getAttribute('data-addt')); paint(); return; }
+        var act = e.target.closest('[data-act]');
+        if (!act) return;
+        act = act.getAttribute('data-act');
+        if (act === 'seqback') { (r.seq || []).pop(); paint(); }
+        else if (act === 'close') closeSheet();
+        else if (act === 'del') {
+          writeJSON(RU_KEY, ruList().filter(function (x) { return x.id !== orig.id; }));
+          renderAll(); closeSheet(); toast('고정 일정을 지웠어요');
+        } else if (act === 'save') {
+          r.note = bs.querySelector('[data-rnote]').value.trim();
+          r.from = bs.querySelector('[data-from]').value || today();
+          r.until = bs.querySelector('[data-until]').value || '';
+          if ((r.kind === 'weekly' || r.kind === 'biweekly') && !(r.days || []).length) { toast('요일을 골라주세요'); return; }
+          if (r.kind === 'monthly' && !(r.mdays || []).length) { toast('날짜를 골라주세요'); return; }
+          if (r.kind === 'shift' && !(r.seq || []).length) { toast('근무 순서를 쌓아주세요'); return; }
+          if (r.until && r.until < r.from) { toast('끝 날짜가 시작보다 빨라요'); return; }
+          // 필요 없는 칸은 비워서 저장
+          if (r.kind !== 'weekly' && r.kind !== 'biweekly') r.days = [];
+          if (r.kind !== 'monthly') r.mdays = [];
+          if (r.kind !== 'shift') { r.seq = []; r.map = {}; }
+          else { var keep = {}; r.seq.forEach(function (x) { keep[x] = r.map[x] || 'no'; }); r.map = keep; }
+          var list = ruList();
+          if (orig) list = list.map(function (x) { return x.id === orig.id ? r : x; });
+          else { r.id = uid(); list.push(r); }
+          writeJSON(RU_KEY, list);
+          renderAll(); closeSheet(); toast(orig ? '고정 일정을 고쳤어요' : '고정 일정을 추가했어요');
         }
       });
     });
