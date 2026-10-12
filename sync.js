@@ -39,7 +39,9 @@ const COLS = [
   },
   // 우리 달력: 각자 되는 날 / 이날 보자(확정)
   { name: 'avail', key: 'ournote:avail', valid: (x) => x && typeof x === 'object' && typeof x.id === 'string' && x.id && /^\d{4}-\d{2}-\d{2}$/.test(x.date || ''), stamp: true },
-  { name: 'dates', key: 'ournote:dates', valid: (x) => x && typeof x === 'object' && typeof x.id === 'string' && x.id && /^\d{4}-\d{2}-\d{2}$/.test(x.date || ''), stamp: true }
+  { name: 'dates', key: 'ournote:dates', valid: (x) => x && typeof x === 'object' && typeof x.id === 'string' && x.id && /^\d{4}-\d{2}-\d{2}$/.test(x.date || ''), stamp: true },
+  // 고정 일정(매주·격주·매달·교대 근무)
+  { name: 'rules', key: 'ournote:rules', valid: (x) => x && typeof x === 'object' && typeof x.id === 'string' && x.id && typeof x.kind === 'string', stamp: true }
 ];
 // 코스 화면을 아직 안 열어서 예전 형식만 있으면 코스 화면과 같은 방법으로 옮겨 둠(덮어써서 잃지 않게)
 function courseStore() {
@@ -601,7 +603,7 @@ function toast(msg) {
 //    → 코드를 모르면 누구도(서버 주인도) 못 열어봄. 🔒 나만 보기 약속과 데이트 코스까지 전부.
 // A. 파일 백업: 'Ournote 백업파일.json'
 const BK_KEY = 'ournote:backup'; // { code, lastHash, lastAt }
-const BK_DATA = ['ournote:items', 'ournote:course2', 'ournote:avail', 'ournote:dates'];
+const BK_DATA = ['ournote:items', 'ournote:course2', 'ournote:avail', 'ournote:dates', 'ournote:rules'];
 const BK_DELAY = 30 * 1000;
 let bk = readJSON(BK_KEY, null);
 if (!bk || typeof bk !== 'object') bk = { code: '', lastHash: '', lastAt: 0 };
@@ -628,7 +630,7 @@ function unb64(str) { return Uint8Array.from(atob(str), (c) => c.charCodeAt(0));
 
 function snapshot() {
   return { app: 'ournote', v: 2, savedAt: Date.now(), items: readJSON('ournote:items', []), course2: readJSON('ournote:course2', null),
-    avail: readJSON('ournote:avail', []), dates: readJSON('ournote:dates', []) };
+    avail: readJSON('ournote:avail', []), dates: readJSON('ournote:dates', []), rules: readJSON('ournote:rules', []) };
 }
 function counts(d) {
   const items = Array.isArray(d.items) ? d.items.length : 0;
@@ -646,7 +648,7 @@ let bkTimer = null, bkBusy = false;
 async function backupNow(force) {
   if (!bk.code || bkBusy) return false;
   const data = snapshot();
-  const h = await sha(canon({ items: data.items, course2: data.course2, avail: data.avail, dates: data.dates }));
+  const h = await sha(canon({ items: data.items, course2: data.course2, avail: data.avail, dates: data.dates, rules: data.rules }));
   if (!force && h === bk.lastHash) return true; // 바뀐 게 없으면 안 씀
   bkBusy = true;
   try {
@@ -699,6 +701,7 @@ function restoreData(d) {
   localStorage.setItem('ournote:items', JSON.stringify(mergeById(readJSON('ournote:items', []), items)));
   if (Array.isArray(d.avail)) localStorage.setItem('ournote:avail', JSON.stringify(mergeById(readJSON('ournote:avail', []), d.avail)));
   if (Array.isArray(d.dates)) localStorage.setItem('ournote:dates', JSON.stringify(mergeById(readJSON('ournote:dates', []), d.dates)));
+  if (Array.isArray(d.rules)) localStorage.setItem('ournote:rules', JSON.stringify(mergeById(readJSON('ournote:rules', []), d.rules)));
   if (d.course2 && Array.isArray(d.course2.stops)) {
     const cur = readJSON('ournote:course2', null) || { stops: [], ranges: [], view: d.course2.view || { start: '', end: '' } };
     cur.stops = mergeById(cur.stops, d.course2.stops);
