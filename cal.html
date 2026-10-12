@@ -234,12 +234,19 @@
   .b-bf { --bf: rgba(70, 120, 210, .18); --bc: #4678d2; }
   .b-gf { --bf: rgba(229, 105, 150, .20); --bc: #e5699a; }
   /* 달력 위: 내 이름 / 상대 이름 / 모두 */
-  .fwho { display: flex; gap: 6px; margin-top: 10px; align-items: center; }
-  .fwho button { flex: 0 0 auto; height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper); color: var(--muted); font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; max-width: 34%; }
-  .fwho button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .fwho button i { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+  .fwho { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+  .fwho button { height: 34px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper); color: var(--muted); font-size: 13.5px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; min-width: 0; -webkit-touch-callout: none; user-select: none; }
+  .fwho button span { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fwho button small { flex: 0 1000 auto; min-width: 0; font-size: 10px; color: var(--muted); font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* 이름 알약 자체가 그 사람 색: 평소엔 옅게, 고르면 진하게 */
+  .fwho button[style] { border-color: color-mix(in srgb, var(--c) 45%, transparent); background: color-mix(in srgb, var(--c) 12%, var(--paper)); color: var(--c); font-weight: 600; }
+  .fwho button[style] small { color: color-mix(in srgb, var(--c) 70%, var(--muted)); }
   .fwho button[aria-pressed="true"] { color: var(--plum); font-weight: 600; border-color: var(--plum); }
-  .fwho .edit { border: 0; background: transparent; color: var(--muted); padding: 0 6px; margin-left: auto; }
+  .fwho button[style][aria-pressed="true"] { background: var(--c); border-color: var(--c); color: #fff; }
+  .fwho button[style][aria-pressed="true"] small { color: rgba(255, 255, 255, .85); }
+  /* 전체 = 노랑(글자는 읽히게 진하게) */
+  .fwho button[data-view="both"] { color: #9a7406; }
+  .fwho button[data-view="both"][aria-pressed="true"] { color: #3d2f05; }
   .b-red { --bf: rgba(217, 71, 79, .18); --bc: #d9474f; }
   .b-yellow { --bf: rgba(230, 189, 58, .24); --bc: #d9a91e; }
   .b-blue { --bf: rgba(70, 120, 210, .20); --bc: #4678d2; }
@@ -259,6 +266,11 @@
   .dp-h { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
   .dp-h b { font-family: var(--serif); font-size: 18px; color: var(--plum); }
   .dp-both { color: var(--rose); font-weight: 600; font-size: 13.5px; }
+  .dlist { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+  .dl { display: flex; align-items: center; gap: 9px; font-size: 14.5px; }
+  .dl i { flex: 0 0 auto; width: 4px; height: 18px; border-radius: 2px; }
+  .dl .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dl small { flex: 0 0 auto; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
   .dp-row { display: flex; gap: 10px; align-items: baseline; margin-top: 8px; font-size: 14px; }
   .dp-row .w { color: var(--muted); font-size: 12.5px; min-width: 30px; }
   .dp-row small { color: var(--muted); }
@@ -684,71 +696,91 @@
   var calView = 'both';
   try { calView = localStorage.getItem(VIEW_KEY) || 'both'; } catch (e) { calView = 'both'; }
   if (['me', 'them', 'both'].indexOf(calView) < 0) calView = 'both';
-  var CVAR = { bf: '#4678d2', gf: '#e5699a' };
+  var CVAR = { bf: '#4678d2', gf: '#e5699a', all: '#e3b52c' };
   function paintWho() {
-    var nm = names();
-    document.getElementById('fWho').innerHTML =
-      '<button type="button" data-view="me" aria-pressed="' + (calView === 'me') + '" style="--c:' + CVAR[nm.meC] + '"><i></i><span>' + esc(nm.me) + '</span></button>' +
-      '<button type="button" data-view="them" aria-pressed="' + (calView === 'them') + '" style="--c:' + CVAR[nm.themC] + '"><i></i><span>' + esc(nm.them) + '</span></button>' +
-      '<button type="button" data-view="both" aria-pressed="' + (calView === 'both') + '"><span>모두</span></button>' +
-      '<button type="button" class="edit" data-act="names" aria-label="이름 · 역할 정하기">✎ 이름</button>';
+    var nm = names(), n = nmRaw();
+    var meSet = asThem ? n.them : n.me, themSet = asThem ? n.me : n.them;
+    function btn(v, label, c, set) {
+      return '<button type="button" data-view="' + v + '" aria-pressed="' + (calView === v) + '"' + (c ? ' style="--c:' + CVAR[c] + '"' : '') + '>' +
+        '<span>' + esc(label) + '</span>' + (c && !set ? '<small>꾹 눌러 수정</small>' : '') + '</button>';
+    }
+    document.getElementById('fWho').innerHTML = btn('me', nm.me, nm.meC, meSet) + btn('them', nm.them, nm.themC, themSet) + btn('both', '전체', 'all', true);
   }
-  document.getElementById('fWho').addEventListener('click', function (e) {
-    var b = e.target.closest('button');
+  // 이름 버튼: 짧게 누르면 보기 바꾸기, 꾹 누르면 이름·색 수정
+  var fWho = document.getElementById('fWho'), lpTimer = null, lpFired = false, lpX = 0, lpY = 0;
+  fWho.addEventListener('pointerdown', function (e) {
+    var b = e.target.closest('[data-view="me"], [data-view="them"]');
+    lpFired = false;
     if (!b) return;
-    if (b.getAttribute('data-act') === 'names') { openNames(); return; }
-    var v = b.getAttribute('data-view');
-    if (!v) return;
-    calView = v;
-    try { localStorage.setItem(VIEW_KEY, v); } catch (er) { /* 없어도 됨 */ }
+    lpX = e.clientX; lpY = e.clientY;
+    clearTimeout(lpTimer);
+    lpTimer = setTimeout(function () { lpFired = true; if (navigator.vibrate) navigator.vibrate(10); openPerson(b.getAttribute('data-view')); }, 500);
+  });
+  fWho.addEventListener('pointermove', function (e) { if (Math.abs(e.clientX - lpX) + Math.abs(e.clientY - lpY) > 10) clearTimeout(lpTimer); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (t) { fWho.addEventListener(t, function () { clearTimeout(lpTimer); }); });
+  fWho.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  fWho.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-view]');
+    if (!b) return;
+    if (lpFired) { lpFired = false; return; }
+    calView = b.getAttribute('data-view');
+    try { localStorage.setItem(VIEW_KEY, calView); } catch (er) { /* 없어도 됨 */ }
     renderFull();
   });
-  function openNames() {
-    var n = nmRaw(), role = n.role === 'bf' ? 'bf' : n.role === 'gf' ? 'gf' : '';
-    var html = '<h2>이름 · 역할</h2>' +
-      '<div class="who">내 이름</div><input class="memo" data-nme maxlength="10" placeholder="나" value="' + esc(n.me || '') + '">' +
-      '<div class="who">상대 이름</div><input class="memo" data-nthem maxlength="10" placeholder="상대" value="' + esc(n.them || '') + '">' +
-      '<div class="who">나는 (같이 볼 때 남친은 파랑, 여친은 핑크)</div><div class="seg4" style="grid-template-columns:1fr 1fr" data-roles>' +
-        '<button type="button" data-role="bf">💙 남친</button><button type="button" data-role="gf">🩷 여친</button></div>' +
+  // side: 화면에 보이는 쪽('me'|'them'). 색은 하나 고르면 다른 쪽은 자동으로 반대색
+  function openPerson(side) {
+    var n = nmRaw(), key = asThem ? (side === 'me' ? 'them' : 'me') : side;
+    var blue = key === 'me' ? n.role === 'bf' : n.role === 'gf' || !n.role;
+    var html = '<h2>' + (side === 'me' ? '나' : '상대') + '</h2>' +
+      '<div class="who">이름</div><input class="memo" data-pname maxlength="10" placeholder="' + (key === 'me' ? '나' : '상대') + '" value="' + esc(n[key] || '') + '">' +
+      '<div class="who">색 (다른 사람은 자동으로 반대 색)</div><div class="seg4" style="grid-template-columns:1fr 1fr">' +
+        '<button type="button" data-pc="blue">💙 파랑</button><button type="button" data-pc="pink">🩷 분홍</button></div>' +
       '<div class="acts"><span class="sp"></span><button type="button" class="btn" data-act="close">닫기</button><button type="button" class="btn pri" data-act="save">저장</button></div>';
     openSheet(html, function (bs) {
-      function paint() { bs.querySelectorAll('[data-role]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-role') === role)); }); }
+      function paint() { bs.querySelectorAll('[data-pc]').forEach(function (b) { b.setAttribute('aria-pressed', String((b.getAttribute('data-pc') === 'blue') === blue)); }); }
       paint();
       bs.addEventListener('click', function (e) {
-        var r = e.target.closest('[data-role]');
-        if (r) { role = r.getAttribute('data-role'); paint(); return; }
+        var c = e.target.closest('[data-pc]');
+        if (c) { blue = c.getAttribute('data-pc') === 'blue'; paint(); return; }
         var a = e.target.closest('[data-act]');
         if (!a) return;
         if (a.getAttribute('data-act') === 'close') { closeSheet(); return; }
-        if (a.getAttribute('data-act') === 'save') {
-          var v = { me: bs.querySelector('[data-nme]').value.trim(), them: bs.querySelector('[data-nthem]').value.trim(), role: role };
-          try { localStorage.setItem(NM_KEY, JSON.stringify(v)); } catch (er) { /* 없어도 됨 */ }
-          closeSheet(); renderAll();
-        }
+        var v = nmRaw();
+        v[key] = bs.querySelector('[data-pname]').value.trim();
+        // role은 '저장된 나' 기준: bf = 나 파랑
+        v.role = key === 'me' ? (blue ? 'bf' : 'gf') : (blue ? 'gf' : 'bf');
+        try { localStorage.setItem(NM_KEY, JSON.stringify(v)); } catch (er) { /* 없어도 됨 */ }
+        closeSheet(); renderAll();
       });
     });
   }
 
   // ---------- 고른 날 정보 (달력 아래) ----------
-  var QUICK = [['ok', '🟢 돼요'], ['day', '🟡 낮만'], ['eve', '🟡 저녁만'], ['no', '🔴 안 돼요'], ['', '지우기']];
+  // 고른 날: 그날 일정만 목록으로(기념일 · 데이트 코스 · 각자 고정 일정 · 직접 적은 일정)
+  var DOT_C = { red: '#d9474f', yellow: '#d9a91e', blue: '#4678d2', sky: '#9cb8e6', green: '#5fae80', purple: '#8c64c8', gray: '#8a8088', bf: '#4678d2', gf: '#e5699a', anni: '#b5476a' };
+  function dayStops(d) {
+    var c = readJSON('ournote:course2', null), list = c && Array.isArray(c.stops) ? c.stops : [];
+    return list.filter(function (x) { return x && x.date === d; }).sort(function (a, b) { return (a.start == null ? 9999 : a.start) - (b.start == null ? 9999 : b.start); });
+  }
+  function hm(m) { m = ((m % 1440) + 1440) % 1440; return pad(Math.floor(m / 60)) + ':' + pad(m % 60); }
   function renderDay() {
-    var d = sel, me = mineOn(d), th = effOn(d, false), meEff = effOn(d, true), meRule = ruleOn(d, true);
-    var past = d < today();
-    function desc(x) { return (x.st === 'part' && x.part ? PART_TEXT[x.part] : (ST_TEXT[x.st] || '')) + (x.note ? ' · ' + x.note : ''); }
-    var cur = me ? (me.st === 'part' ? (me.part || 'eve') : me.st) : null;
-    var both = bothLabel(meEff, th), c = confirmedOn(d);
-    var an = annisOn(d), st = anStart();
-    var html = '<div class="dp-h"><b>' + esc(mdw(d)) + '</b>' + (c ? '<span class="dp-both">💞 이날 보기로 했어요</span>' : both ? '<span class="dp-both">💞 둘 다 돼요 · ' + both + '</span>' : '') + '</div>' +
-      (an.length || (st && d > st.date) ? '<div class="dp-anni">' + an.map(function (l) { return '<span>💝 ' + esc(l) + '</span>'; }).join('') +
-        (st && d > st.date && !an.length ? '<small class="muted">💝 ' + dPlus(st.date, d) + '일째</small>' : '') + '</div>' : '') +
-      '<div class="dp-row"><span class="w">' + esc(names().me) + '</span><span>' + (meEff ? esc(desc(meEff)) : '<small>표시 없음</small>') +
-        (!me && meRule ? ' <small>(🔁 ' + esc(ruleLabel(meRule.rule)) + ')</small>' : me && meRule ? ' <small>· 원래 ' + esc(meRule.note || ST_TEXT[meRule.st]) + '</small>' : '') + '</span></div>' +
-      '<div class="dp-row"><span class="w">' + esc(names().them) + '</span><span>' + (th ? esc(desc(th)) + (th.auto ? ' <small>(🔁 ' + esc(ruleLabel(th.rule)) + ')</small>' : '') : '<small>' + (connected() ? '아직 표시 안 했어요' : '같이 쓰기를 연결하면 보여요') + '</small>') + '</span></div>' +
-      // 상대만 볼 때는 내 돼요/안 돼요 버튼·메모를 숨김
-      (calView === 'them' ? '' : '<div class="qbtns">' + QUICK.map(function (q) {
-        return '<button type="button" class="qb" data-q="' + q[0] + '" aria-pressed="' + (cur === q[0] || (!cur && q[0] === '' && false)) + '"' + (past ? ' disabled' : '') + '>' + q[1] + '</button>';
-      }).join('') + '</div>') +
-      (me && !past && calView !== 'them' ? '<input class="memo" data-dmemo maxlength="40" placeholder="메모 (예: 야근, 친구 결혼식) · 안 써도 돼요" value="' + esc(me.note || '') + '">' : '') +
+    var d = sel, past = d < today(), c = confirmedOn(d), nm = names(), list = avList(), rules = ruList();
+    var both = bothLabel(effOn(d, true, list, rules), effOn(d, false, list, rules));
+    var rows = [], st = anStart();
+    annisOn(d).forEach(function (l) { rows.push({ c: 'anni', t: '💝 ' + l }); });
+    if (c) rows.push({ c: 'anni', t: '💞 이날 보기로 했어요' });
+    dayStops(d).forEach(function (x) { rows.push({ c: 'gray', t: '🧭 ' + (x.title || '장소'), tm: x.start != null ? hm(x.start) + (x.end != null ? '~' + hm(x.end) : '') : '' }); });
+    [['me', true], ['them', false]].forEach(function (w) {
+      if (calView !== 'both' && calView !== w[0]) return;
+      var who = w[1] ? nm.me : nm.them, col = calView === 'both' ? (w[1] ? nm.meC : nm.themC) : '';
+      personItems(d, w[1], list, rules).forEach(function (x) { rows.push({ c: col || x.color, t: x.label, who: calView === 'both' ? who : '' }); });
+    });
+    var html = '<div class="dp-h"><b>' + esc(mdw(d)) + '</b>' + (st && d > st.date ? '<small class="muted">💝 ' + dPlus(st.date, d) + '일째</small>' : '') +
+        (!c && both ? '<span class="dp-both">💞 둘 다 돼요 · ' + both + '</span>' : '') + '</div>' +
+      '<div class="dlist">' + (rows.length ? rows.map(function (r) {
+        return '<div class="dl"><i style="background:' + (DOT_C[r.c] || DOT_C.gray) + '"></i><span class="t">' + esc(r.t) + '</span>' +
+          (r.tm ? '<small>' + esc(r.tm) + '</small>' : r.who ? '<small>' + esc(r.who) + '</small>' : '') + '</div>';
+      }).join('') : '<div class="muted" style="padding:6px 2px">일정 없어요</div>') + '</div>' +
       (past ? '' : '<div class="confirmbox">' + (c
         ? '<a class="btn pri wide" style="text-align:center;text-decoration:none" href="/course.html?date=' + d + '">코스 짜러 가기 →</a><button type="button" class="btn ghost" data-act="unconfirm">확정 취소</button>'
         : '<button type="button" class="btn ' + (both ? 'pri' : '') + ' wide" data-act="confirm">💞 이날 보자</button>') + '</div>');
