@@ -121,7 +121,6 @@
   .dot.ok { background: var(--ok); border-color: var(--ok); }
   .dot.part { background: var(--part); border-color: var(--part); }
   .dot.no { background: var(--no); border-color: var(--no); }
-  .dot.them { border-radius: 3px; } /* 상대는 네모 점 */
   .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 10px 2px 0; font-size: 12px; color: var(--muted); align-items: center; }
   .legend .dot { display: inline-block; vertical-align: -1px; margin-right: 3px; }
   .howto { margin: 6px 2px 0; font-size: 12px; color: var(--muted); word-break: keep-all; }
@@ -182,7 +181,6 @@
     <span><span class="dot ok"></span>돼요</span>
     <span><span class="dot part"></span>일부만</span>
     <span><span class="dot no"></span>안 돼요</span>
-    <span>● 나 · ■ 상대</span>
     <span>💞 둘 다 돼요</span>
   </div>
   <p class="howto">날짜를 누를 때마다 돼요 → 일부만 → 안 돼요 → 지움 · 꾹 누르면 자세히(메모·낮/저녁·이날 보자) · 손가락으로 쭉 그으면 한꺼번에</p>
@@ -390,7 +388,7 @@
         return '<button type="button" class="pt" data-part="' + k + '" aria-pressed="' + (part === k) + '">' + (k ? PART_TEXT[k] : '정확히 몰라요') + '</button>';
       }).join('') + '</div>' +
       '<input class="memo" data-memo maxlength="40" placeholder="메모 (예: 야근, 친구 결혼식) · 안 써도 돼요" value="' + esc(note) + '">' +
-      '<div class="who">상대</div><div class="theirs">' + (th ? '■ ' : '') + esc(thText) + '</div>' +
+      '<div class="who">상대</div><div class="theirs">' + esc(thText) + '</div>' +
       '<div class="confirmbox" data-confirm></div>' +
       '<div class="acts"><button type="button" class="btn" data-act="close">닫기</button><button type="button" class="btn pri" data-act="save">저장</button></div>';
     openSheet(html, function (bs) {
