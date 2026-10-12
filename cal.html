@@ -104,7 +104,6 @@
   .monthbar button { width: 36px; height: 32px; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); font-size: 18px; color: var(--plum); cursor: pointer; }
   .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; touch-action: pan-y; }
   .wk { text-align: center; font-size: 11.5px; color: var(--muted); padding-bottom: 2px; }
-  .wk.sun { color: var(--rose); }
   .cell {
     position: relative; height: 58px; border-radius: 12px; border: 1px solid transparent; background: var(--paper-60);
     display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 5px 3px 3px; cursor: pointer;
@@ -132,8 +131,14 @@
     .c-gray { background: #3a3439; color: #c9c0c6; }
   }
   .cell.out { visibility: hidden; }
-  .cell .n { font-size: 14px; font-variant-numeric: tabular-nums; line-height: 1.2; }
-  .cell.sun .n { color: var(--rose); }
+  .cell .n { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+  /* 일요일 빨강 · 토요일 파랑 (굵게) */
+  .cell.sun .n, .wk.sun, .fweek .sun { color: #d9474f; font-weight: 700; }
+  .cell.sat .n, .wk.sat, .fweek .sat { color: #3b6fd1; font-weight: 700; }
+  @media (prefers-color-scheme: dark) {
+    .cell.sun .n, .wk.sun, .fweek .sun { color: #f07d84; }
+    .cell.sat .n, .wk.sat, .fweek .sat { color: #82a8f0; }
+  }
   .cell.today { border-color: var(--plum); }
   .cell.past { opacity: .4; }
   .cell.both { background: var(--rose-soft); }
@@ -201,7 +206,6 @@
   body.asthem .frow b::after { content: " (상대)"; font-size: 14px; color: #4678d2; }
   body.asthem .rulesbtn::after { content: "상대 입장"; font-size: 11px; color: #fff; background: #4678d2; border-radius: 999px; padding: 1px 7px; }
   .fweek { display: grid; grid-template-columns: repeat(7, 1fr); margin-top: 10px; font-size: 11.5px; color: var(--muted); text-align: center; }
-  .fweek .sun { color: var(--rose); }
   .fbody { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 4px max(10px, env(safe-area-inset-right)) calc(30px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); }
   .grid.big { touch-action: pan-y; }
   .grid.big { gap: 0 2px; }
@@ -503,7 +507,7 @@
   function renderMonth(el, big) {
     var t = today(), list = avList(), rules = ruList(), conf = {};
     dtList().forEach(function (x) { conf[x.date] = true; });
-    var h = WEEK.map(function (w, i) { return '<div class="wk' + (i === 0 ? ' sun' : '') + '">' + w + '</div>'; }).join('');
+    var h = WEEK.map(function (w, i) { return '<div class="wk' + (i === 0 ? ' sun' : i === 6 ? ' sat' : '') + '">' + w + '</div>'; }).join('');
     var first = shown.getDay(), dim = new Date(shown.getFullYear(), shown.getMonth() + 1, 0).getDate();
     for (var i = 0; i < first; i++) h += '<div class="cell out"></div>';
     // 큰 달력: 줄마다(위 나 / 아래 상대) 띠. 같은 일정이 이어지면 한 띠, 글자는 띠 길이까지만(넘치면 잘림)
@@ -518,6 +522,7 @@
       var me = effOn(d, true, list, rules), th = effOn(d, false, list, rules);
       var cls = ['cell'];
       if (dt.getDay() === 0) cls.push('sun');
+      if (dt.getDay() === 6) cls.push('sat');
       if (d === t) cls.push('today');
       if (d < t) cls.push('past');
       if (bothLabel(me, th)) cls.push('both');
@@ -595,7 +600,7 @@
     shown = new Date(shown.getFullYear(), shown.getMonth() + n, 1);
     renderAll();
   }
-  document.getElementById('fWeek').innerHTML = WEEK.map(function (w, i) { return '<span' + (i === 0 ? ' class="sun"' : '') + '>' + w + '</span>'; }).join('');
+  document.getElementById('fWeek').innerHTML = WEEK.map(function (w, i) { return '<span' + (i === 0 ? ' class="sun"' : i === 6 ? ' class="sat"' : '') + '>' + w + '</span>'; }).join('');
   document.getElementById('fPrev').addEventListener('click', function () { moveMonth(-1); });
   document.getElementById('fNext').addEventListener('click', function () { moveMonth(1); });
   function paintAs() {
