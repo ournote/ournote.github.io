@@ -220,15 +220,14 @@
   .lane { position: relative; height: 12px; display: flex; align-items: center; }
   .lane .dot { width: 7px; height: 7px; border: 0; margin-left: 3px; }
   .bar { position: relative; flex: 1; min-width: 0; height: 12px; border-radius: 2px; display: flex; align-items: center; background: var(--bf); border-left: 2.5px solid var(--bc); }
-  .bar.jl { border-left-width: 0; margin-left: -2px; border-top-left-radius: 0; border-bottom-left-radius: 0; }
-  .bar.jr { margin-right: -2px; border-top-right-radius: 0; border-bottom-right-radius: 0; }
   /* 상대 일정은 속이 빈 띠(테두리만) */
   .lanes.them .bar { background: transparent; border: 1px solid var(--bc); border-left-width: 2.5px; }
-  .lanes.them .bar.jl { border-left-width: 0; }
-  .lanes.them .bar.jr { border-right-width: 0; }
-  /* 글자는 이어진 띠 길이만큼만, 넘치면 잘림 */
+  /* 숫자 좌(나)·우(상대) 동그라미 */
+  .nrow { display: flex; align-items: center; justify-content: center; gap: 3px; width: 100%; }
+  .nrow .sd { flex: 0 0 auto; width: 7px; height: 7px; border: 0; border-radius: 50%; }
+  /* 글자는 그날 칸 안에서만, 넘치면 잘림 */
   .bar b { position: relative; z-index: 2; display: block; padding: 0 2px 0 2px; font-size: 9px; font-weight: 500; white-space: nowrap; overflow: hidden; line-height: 12px; letter-spacing: -.3px;
-    width: calc(var(--run, 1) * 100% + (var(--run, 1) - 1) * 4px); max-width: none; color: var(--ink); }
+    width: 100%; color: var(--ink); }
   .lanes.them .bar b { line-height: 10px; }
   .lane .more { position: absolute; right: 0; top: -5px; z-index: 3; font-style: normal; font-size: 8.5px; font-weight: 700; color: var(--muted); background: var(--paper); border-radius: 6px; padding: 0 2px; line-height: 11px; }
   .b-red { --bf: rgba(217, 71, 79, .18); --bc: #d9474f; }
@@ -525,7 +524,6 @@
       var kd = ymd(new Date(shown.getFullYear(), shown.getMonth(), k));
       lanes[k] = { me: laneItems(kd, true, list, rules), them: laneItems(kd, false, list, rules) };
     }
-    function same(a, b) { return a && b && a.kind === 'bar' && a.key === b.key; }
     for (var dn = 1; dn <= dim; dn++) {
       var dt = new Date(shown.getFullYear(), shown.getMonth(), dn), d = ymd(dt);
       var me = effOn(d, true, list, rules), th = effOn(d, false, list, rules);
@@ -540,53 +538,46 @@
       var inner;
       if (big) {
         var dow = dt.getDay();
-        // 나: 위에서부터 / 상대: 칸 아래에서부터 위로
+        // 나: 위에서부터 / 상대: 칸 아래에서부터 위로. 이어진 날도 하루씩 따로 적음
         inner = ['me', 'them'].map(function (who) {
-          var html = [0, 1].map(function (slot) {
-            var x = lanes[dn][who][slot];
-            var jl = dow > 0 && dn > 1 && same(lanes[dn - 1][who][slot], x);
-            var jr = dow < 6 && dn < dim && same(lanes[dn + 1][who][slot], x);
-            var run = 1;
-            if (x && !jl) for (var q = dn + 1; q <= dim && new Date(shown.getFullYear(), shown.getMonth(), q).getDay() > 0 && same(lanes[q][who][slot], x); q++) run++;
-            return laneHtml(x, jl, jr, run);
-          });
+          var html = [0, 1].map(function (slot) { return laneHtml(lanes[dn][who][slot]); });
           if (who === 'them') html.reverse();
           return '<span class="lanes ' + who + '">' + html.join('') + '</span>';
         }).join('');
       } else {
         inner = '<span class="halves">' + halfHtml('me', ruleOn(d, true, rules), mineOn(d, list)) + halfHtml('them', ruleOn(d, false, rules), theirsOn(d, list)) + '</span>';
       }
-      h += '<div class="' + cls.join(' ') + '" data-d="' + d + '"><span class="n">' + dn + '</span>' + inner + '</div>';
+      // 큰 달력: 숫자 왼쪽 = 나, 오른쪽 = 상대 (돼요/일부만/안 돼요 동그라미)
+      var num = '<span class="n">' + dn + '</span>';
+      if (big) {
+        var exM = mineOn(d, list), exT = theirsOn(d, list);
+        num = '<span class="nrow"><i class="sd' + (exM ? ' dot ' + exM.st : '') + '"></i>' + num + '<i class="sd' + (exT ? ' dot ' + exT.st : '') + '"></i></span>';
+      }
+      h += '<div class="' + cls.join(' ') + '" data-d="' + d + '">' + num + inner + '</div>';
     }
     el.innerHTML = h;
     el.classList.toggle('onlyboth', !!(big && onlyBoth));
   }
-  // 큰 달력: 한 사람당 최대 2개. 직접 표시(메모 있으면 띠, 없으면 점) 먼저, 그다음 고정 일정 띠
+  // 큰 달력: 한 사람당 최대 2개. 직접 표시는 숫자 옆 동그라미, 메모가 있으면 띠로 / 그다음 고정 일정 띠
   var STATE_COLOR = { ok: 'green', part: 'yellow', no: 'red' };
   function laneItems(d, mine, av, rules) {
     var out = [];
     var ex = mine ? mineOn(d, av) : theirsOn(d, av);
-    // 직접 표시는 메모가 없어도 띠로(돼요 / 낮만 / 저녁만 / 안 돼요)
-    if (ex) {
-      var stTxt = ex.st === 'part' && ex.part ? PART_TEXT[ex.part] : (ST_TEXT[ex.st] || '');
-      out.push({ kind: 'bar', key: 'x:' + ex.st + ':' + (ex.part || '') + ':' + (ex.note || ''), label: ex.note || stTxt, color: STATE_COLOR[ex.st] || 'gray' });
-    }
+    if (ex && ex.note) out.push({ label: ex.note, color: STATE_COLOR[ex.st] || 'gray' });
     (rules || ruList()).forEach(function (r) {
       if (isMine(r) !== mine) return;
       var m = ruleHit(r, d);
-      if (m && m.tag) out.push({ kind: 'bar', key: 'r:' + r.id + ':' + m.note, label: m.note || m.tag.t, color: m.tag.c });
+      if (m && m.tag) out.push({ label: m.note || m.tag.t, color: m.tag.c });
     });
     var more = Math.max(0, out.length - 2);
     out = out.slice(0, 2);
     if (more) out[out.length - 1].more = more;
     return out;
   }
-  function laneHtml(x, jl, jr, run) {
+  function laneHtml(x) {
     if (!x) return '<span class="lane"></span>';
-    var more = x.more && !jr ? '<i class="more">+' + x.more + '</i>' : '';
-    if (x.kind === 'dot') return '<span class="lane"><i class="dot ' + x.st + '"></i>' + more + '</span>';
-    return '<span class="lane"><span class="bar b-' + x.color + (jl ? ' jl' : '') + (jr ? ' jr' : '') + '">' +
-      (jl ? '' : '<b style="--run:' + run + '">' + esc(x.label) + '</b>') + '</span>' + more + '</span>';
+    var more = x.more ? '<i class="more">+' + x.more + '</i>' : '';
+    return '<span class="lane"><span class="bar b-' + x.color + '"><b>' + esc(x.label) + '</b></span>' + more + '</span>';
   }
   // 아래 반쪽 칸: 고정 일정은 글자 1개 + 바탕색, 직접 표시는 작은 점
   function halfHtml(who, rule, ex) {
