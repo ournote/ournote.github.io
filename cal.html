@@ -200,8 +200,25 @@
   .fweek .sun { color: var(--rose); }
   .fbody { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 4px max(10px, env(safe-area-inset-right)) calc(30px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); }
   .grid.big { touch-action: pan-y; }
-  .grid.big .cell { height: 66px; }
-  .grid.big .halves { height: 26px; }
+  .grid.big .cell { height: 92px; justify-content: space-between; gap: 2px; padding: 4px 2px 3px; }
+  .lanes { display: flex; flex-direction: column; gap: 2px; width: 100%; }
+  .lanes.me { margin-bottom: auto; }
+  .lane { position: relative; height: 15px; display: flex; align-items: center; }
+  .lane .dot { width: 7px; height: 7px; border: 0; margin-left: 3px; }
+  .bar { position: relative; flex: 1; min-width: 0; height: 15px; border-radius: 3px; display: flex; align-items: center; border-left: 3px solid; }
+  .bar.jl { border-left: 0; margin-left: -5px; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+  .bar.jr { margin-right: -5px; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+  /* 글자는 이어진 띠 길이만큼만, 넘치면 잘림 */
+  .bar b { position: relative; z-index: 2; display: block; padding: 0 2px 0 3px; font-size: 9.5px; font-weight: 500; white-space: nowrap; overflow: hidden; line-height: 15px; letter-spacing: -.2px;
+    width: calc(var(--run, 1) * 100% + (var(--run, 1) - 1) * 10px); max-width: none; color: var(--ink); }
+  .lane .more { position: absolute; right: 0; top: -5px; z-index: 3; font-style: normal; font-size: 8.5px; font-weight: 700; color: var(--muted); background: var(--paper); border-radius: 6px; padding: 0 2px; line-height: 11px; }
+  .b-red { background: rgba(217, 71, 79, .18); border-left-color: #d9474f; }
+  .b-yellow { background: rgba(230, 189, 58, .24); border-left-color: #d9a91e; }
+  .b-blue { background: rgba(70, 120, 210, .20); border-left-color: #4678d2; }
+  .b-sky { background: rgba(120, 160, 225, .14); border-left-color: #9cb8e6; }
+  .b-green { background: rgba(95, 174, 128, .20); border-left-color: #5fae80; }
+  .b-purple { background: rgba(140, 100, 200, .18); border-left-color: #8c64c8; }
+  .b-gray { background: rgba(120, 112, 118, .16); border-left-color: #8a8088; }
   .grid .wk { display: none; }
   .grid.mini .wk { display: block; }
   .cell.today { background: rgba(181, 71, 106, .10); border-color: transparent; }
@@ -413,12 +430,14 @@
   // 그날 실제 상태: 직접 표시 > 고정 일정
   // 고정 일정이 여러 개 겹치면 더 빡빡한 쪽(안 돼요 > 일부만 > 돼요)
   function ruleOn(d, mine, rules) {
-    var rank = { no: 3, part: 2, ok: 1 }, best = null;
+    var rank = { no: 3, part: 2, ok: 1 }, best = null, n = 0;
     (rules || ruList()).forEach(function (r) {
       if (isMine(r) !== mine) return;
       var m = ruleHit(r, d);
+      if (m && m.tag) n++;
       if (m && (!best || rank[m.st] >= rank[best.st])) best = m;
     });
+    if (best) best.count = n;
     return best;
   }
   function effOn(d, mine, av, rules) {
@@ -476,6 +495,13 @@
     var h = WEEK.map(function (w, i) { return '<div class="wk' + (i === 0 ? ' sun' : '') + '">' + w + '</div>'; }).join('');
     var first = shown.getDay(), dim = new Date(shown.getFullYear(), shown.getMonth() + 1, 0).getDate();
     for (var i = 0; i < first; i++) h += '<div class="cell out"></div>';
+    // 큰 달력: 줄마다(위 나 / 아래 상대) 띠. 같은 일정이 이어지면 한 띠, 글자는 띠 길이까지만(넘치면 잘림)
+    var lanes = [];
+    if (big) for (var k = 1; k <= dim; k++) {
+      var kd = ymd(new Date(shown.getFullYear(), shown.getMonth(), k));
+      lanes[k] = { me: laneItems(kd, true, list, rules), them: laneItems(kd, false, list, rules) };
+    }
+    function same(a, b) { return a && b && a.kind === 'bar' && a.key === b.key; }
     for (var dn = 1; dn <= dim; dn++) {
       var dt = new Date(shown.getFullYear(), shown.getMonth(), dn), d = ymd(dt);
       var me = effOn(d, true, list, rules), th = effOn(d, false, list, rules);
@@ -486,11 +512,52 @@
       if (bothLabel(me, th)) cls.push('both');
       if (conf[d]) cls.push('conf');
       if (big && d === sel) cls.push('sel');
-      h += '<div class="' + cls.join(' ') + '" data-d="' + d + '"><span class="n">' + dn + '</span>' +
-        '<span class="halves">' + halfHtml('me', ruleOn(d, true, rules), mineOn(d, list)) + halfHtml('them', ruleOn(d, false, rules), theirsOn(d, list)) + '</span></div>';
+      var inner;
+      if (big) {
+        var dow = dt.getDay();
+        // 나: 위에서부터 / 상대: 칸 아래에서부터 위로
+        inner = ['me', 'them'].map(function (who) {
+          var html = [0, 1].map(function (slot) {
+            var x = lanes[dn][who][slot];
+            var jl = dow > 0 && dn > 1 && same(lanes[dn - 1][who][slot], x);
+            var jr = dow < 6 && dn < dim && same(lanes[dn + 1][who][slot], x);
+            var run = 1;
+            if (x && !jl) for (var q = dn + 1; q <= dim && new Date(shown.getFullYear(), shown.getMonth(), q).getDay() > 0 && same(lanes[q][who][slot], x); q++) run++;
+            return laneHtml(x, jl, jr, run);
+          });
+          if (who === 'them') html.reverse();
+          return '<span class="lanes ' + who + '">' + html.join('') + '</span>';
+        }).join('');
+      } else {
+        inner = '<span class="halves">' + halfHtml('me', ruleOn(d, true, rules), mineOn(d, list)) + halfHtml('them', ruleOn(d, false, rules), theirsOn(d, list)) + '</span>';
+      }
+      h += '<div class="' + cls.join(' ') + '" data-d="' + d + '"><span class="n">' + dn + '</span>' + inner + '</div>';
     }
     el.innerHTML = h;
     el.classList.toggle('onlyboth', !!(big && onlyBoth));
+  }
+  // 큰 달력: 한 사람당 최대 2개. 직접 표시(메모 있으면 띠, 없으면 점) 먼저, 그다음 고정 일정 띠
+  var STATE_COLOR = { ok: 'green', part: 'yellow', no: 'red' };
+  function laneItems(d, mine, av, rules) {
+    var out = [];
+    var ex = mine ? mineOn(d, av) : theirsOn(d, av);
+    if (ex) out.push(ex.note ? { kind: 'bar', key: 'x:' + ex.st + ':' + ex.note, label: ex.note, color: STATE_COLOR[ex.st] || 'gray' } : { kind: 'dot', key: 'dot', st: ex.st });
+    (rules || ruList()).forEach(function (r) {
+      if (isMine(r) !== mine) return;
+      var m = ruleHit(r, d);
+      if (m && m.tag) out.push({ kind: 'bar', key: 'r:' + r.id + ':' + m.note, label: m.note || m.tag.t, color: m.tag.c });
+    });
+    var more = Math.max(0, out.length - 2);
+    out = out.slice(0, 2);
+    if (more) out[out.length - 1].more = more;
+    return out;
+  }
+  function laneHtml(x, jl, jr, run) {
+    if (!x) return '<span class="lane"></span>';
+    var more = x.more && !jr ? '<i class="more">+' + x.more + '</i>' : '';
+    if (x.kind === 'dot') return '<span class="lane"><i class="dot ' + x.st + '"></i>' + more + '</span>';
+    return '<span class="lane"><span class="bar b-' + x.color + (jl ? ' jl' : '') + (jr ? ' jr' : '') + '">' +
+      (jl ? '' : '<b style="--run:' + run + '">' + esc(x.label) + '</b>') + '</span>' + more + '</span>';
   }
   // 아래 반쪽 칸: 고정 일정은 글자 1개 + 바탕색, 직접 표시는 작은 점
   function halfHtml(who, rule, ex) {
