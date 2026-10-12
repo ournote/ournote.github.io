@@ -64,6 +64,9 @@
     animation: enter .2s ease both;
   }
   body.locked { overflow: hidden; }
+  /* 꾹 눌러도 글자가 선택되거나 복사 메뉴가 뜨지 않게(입력칸은 제외) */
+  body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  input, textarea, select { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
   @keyframes enter { from { opacity: 0; } to { opacity: 1; } }
   button, input { font: inherit; color: inherit; }
   .wrap {
@@ -99,7 +102,7 @@
   .monthbar { display: flex; align-items: center; justify-content: space-between; margin: 18px 2px 8px; }
   .monthbar b { font-family: var(--serif); font-size: 18px; color: var(--plum); }
   .monthbar button { width: 36px; height: 32px; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); font-size: 18px; color: var(--plum); cursor: pointer; }
-  .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; touch-action: pan-y; }
   .wk { text-align: center; font-size: 11.5px; color: var(--muted); padding-bottom: 2px; }
   .wk.sun { color: var(--rose); }
   .cell {
@@ -137,9 +140,6 @@
   .cell.both::after { content: "💞"; position: absolute; top: 2px; right: 3px; font-size: 9px; }
   .cell.conf .n { background: var(--rose); color: #fff; border-radius: 999px; padding: 0 6px; }
   .cell.hit { transform: scale(.94); }
-  /* 쭉 당겨서 고르는 중인 범위: 연한 핑크 */
-  .cell.sel { background: #fde4ec; border-color: #f2b3c8; }
-  @media (prefers-color-scheme: dark) { .cell.sel { background: #4a2836; border-color: #8a4a63; } }
   .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--line); }
   .dot.ok { background: var(--ok); border-color: var(--ok); }
   .dot.part { background: var(--part); border-color: var(--part); }
@@ -238,7 +238,7 @@
     <span>💞 둘 다 돼요</span>
   </div>
   <button type="button" class="rulesbtn" id="rulesBtn">🔁 고정 일정 <span id="rulesN"></span><span class="arr">›</span></button>
-  <p class="howto">날짜를 누를 때마다 돼요 → 일부만 → 안 돼요 → 지움 · 꾹 누르면 자세히(메모·낮/저녁·이날 보자) · 찍고 쭉 당기면 그 사이 날짜 전부 한꺼번에</p>
+  <p class="howto">날짜를 누를 때마다 돼요 → 일부만 → 안 돼요 → 지움 · 꾹 누르면 자세히(메모·낮/저녁·이날 보자)</p>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -436,73 +436,48 @@
   document.getElementById('prevM').addEventListener('click', function () { shown = new Date(shown.getFullYear(), shown.getMonth() - 1, 1); renderGrid(); });
   document.getElementById('nextM').addEventListener('click', function () { shown = new Date(shown.getFullYear(), shown.getMonth() + 1, 1); renderGrid(); });
 
-  // 누르기(상태 돌리기) · 꾹 누르기(자세히) · 쭉 긋기(한꺼번에)
+  // 누르기(상태 돌리기) · 꾹 누르기(자세히)
   var grid = document.getElementById('grid');
   var press = null;
-  function cellAt(x, y) { var el = document.elementFromPoint(x, y); el = el && el.closest ? el.closest('.cell[data-d]') : null; return el && !el.classList.contains('past') ? el : null; }
   grid.addEventListener('pointerdown', function (e) {
     var c = e.target.closest('.cell[data-d]');
     if (!c || c.classList.contains('past')) return;
-    press = { d: c.getAttribute('data-d'), x: e.clientX, y: e.clientY, painting: false, paint: '', done: {}, long: false };
+    press = { d: c.getAttribute('data-d'), x: e.clientX, y: e.clientY, long: false };
     c.classList.add('hit');
-    try { grid.setPointerCapture(e.pointerId); } catch (err) { /* 없어도 됨 */ }
     press.timer = setTimeout(function () {
-      if (!press || press.painting) return;
+      if (!press) return;
       press.long = true;
       c.classList.remove('hit');
       openDay(press.d);
     }, 480);
   });
+  // 손가락이 움직이면(스크롤 등) 누른 걸로 치지 않음
   grid.addEventListener('pointermove', function (e) {
     if (!press || press.long) return;
-    if (!press.painting && Math.abs(e.clientX - press.x) < 10 && Math.abs(e.clientY - press.y) < 10) return;
-    clearTimeout(press.timer);
-    var c = cellAt(e.clientX, e.clientY);
-    if (!press.painting) {
-      if (!c || c.getAttribute('data-d') === press.d) return;
-      var m = mineOn(press.d);
-      press.painting = true;
-      press.paint = NEXT[m ? m.st : '']; // 첫 칸을 누른 것처럼 다음 상태(지움 포함)로 범위 전체를 칠함
-    }
-    if (c) { press.end = c.getAttribute('data-d'); markRange(); }
+    if (Math.abs(e.clientX - press.x) < 10 && Math.abs(e.clientY - press.y) < 10) return;
+    cancelPress();
   });
-  // 처음 찍은 날 ~ 지금 손가락이 있는 날까지 사이의 모든 날(지난 날 빼고)
-  function rangeDays(a, b) {
-    var lo = a < b ? a : b, hi = a < b ? b : a, out = [];
-    grid.querySelectorAll('.cell[data-d]:not(.past)').forEach(function (c) {
-      var d = c.getAttribute('data-d');
-      if (d >= lo && d <= hi) out.push(d);
-    });
-    return out;
-  }
-  function markRange() {
-    var on = {};
-    rangeDays(press.d, press.end || press.d).forEach(function (d) { on[d] = true; });
-    press.done = on;
-    grid.querySelectorAll('.cell[data-d]').forEach(function (c) { c.classList.toggle('sel', !!on[c.getAttribute('data-d')]); });
+  function cancelPress() {
+    if (!press) return;
+    clearTimeout(press.timer);
+    press = null;
+    grid.querySelectorAll('.cell.hit').forEach(function (c) { c.classList.remove('hit'); });
   }
   function pressEnd() {
     if (!press) return;
     var p = press; press = null;
     clearTimeout(p.timer);
-    grid.querySelectorAll('.cell.hit, .cell.sel').forEach(function (c) { c.classList.remove('hit', 'sel'); });
+    grid.querySelectorAll('.cell.hit').forEach(function (c) { c.classList.remove('hit'); });
     if (p.long) return;
-    if (p.painting) {
-      var days = Object.keys(p.done);
-      days.forEach(function (d) { var m = mineOn(d); setMine(d, p.paint, m && m.part, m && m.note); });
-      renderAll();
-      days.sort();
-      toast((days.length > 1 ? mdShort(days[0]) + '~' + mdShort(days[days.length - 1]) + ' ' : '') + days.length + '일을 ' + (p.paint ? '‘' + ST_TEXT[p.paint] + '’' + (p.paint === 'part' ? '으로' : '로') + ' 표시했어요' : '지웠어요'));
-      return;
-    }
     var m = mineOn(p.d);
     var nx = NEXT[m ? m.st : ''];
     setMine(p.d, nx, m && m.part, m && m.note);
     renderAll();
   }
   grid.addEventListener('pointerup', pressEnd);
-  grid.addEventListener('pointercancel', pressEnd);
+  grid.addEventListener('pointercancel', cancelPress);
   grid.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  document.addEventListener('selectstart', function (e) { if (!e.target.closest || !e.target.closest('input, textarea')) e.preventDefault(); });
 
   document.getElementById('summary').addEventListener('click', function (e) {
     var c = e.target.closest('[data-day]');
