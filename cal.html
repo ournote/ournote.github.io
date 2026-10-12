@@ -563,12 +563,14 @@
   function laneItems(d, mine, av, rules) {
     var out = [];
     var ex = mine ? mineOn(d, av) : theirsOn(d, av);
-    if (ex && ex.note) out.push({ label: ex.note, color: STATE_COLOR[ex.st] || 'gray' });
+    var memo = ex && ex.note ? { label: ex.note, color: STATE_COLOR[ex.st] || 'gray' } : null;
+    // 1번 고정 일정, 2번 직접 적은 일정. 나는 위에서부터, 상대는 맨 아래부터 위로 쌓임
     (rules || ruList()).forEach(function (r) {
       if (isMine(r) !== mine) return;
       var m = ruleHit(r, d);
       if (m && m.tag) out.push({ label: m.note || m.tag.t, color: m.tag.c });
     });
+    if (memo) out.push(memo);
     var more = Math.max(0, out.length - 2);
     out = out.slice(0, 2);
     if (more) out[out.length - 1].more = more;
