@@ -689,10 +689,11 @@
       '<div class="dp-row"><span class="w">' + esc(names().me) + '</span><span>' + (meEff ? esc(desc(meEff)) : '<small>표시 없음</small>') +
         (!me && meRule ? ' <small>(🔁 ' + esc(ruleLabel(meRule.rule)) + ')</small>' : me && meRule ? ' <small>· 원래 ' + esc(meRule.note || ST_TEXT[meRule.st]) + '</small>' : '') + '</span></div>' +
       '<div class="dp-row"><span class="w">' + esc(names().them) + '</span><span>' + (th ? esc(desc(th)) + (th.auto ? ' <small>(🔁 ' + esc(ruleLabel(th.rule)) + ')</small>' : '') : '<small>' + (connected() ? '아직 표시 안 했어요' : '같이 쓰기를 연결하면 보여요') + '</small>') + '</span></div>' +
-      '<div class="qbtns">' + QUICK.map(function (q) {
+      // 상대만 볼 때는 내 돼요/안 돼요 버튼·메모를 숨김
+      (calView === 'them' ? '' : '<div class="qbtns">' + QUICK.map(function (q) {
         return '<button type="button" class="qb" data-q="' + q[0] + '" aria-pressed="' + (cur === q[0] || (!cur && q[0] === '' && false)) + '"' + (past ? ' disabled' : '') + '>' + q[1] + '</button>';
-      }).join('') + '</div>' +
-      (me && !past ? '<input class="memo" data-dmemo maxlength="40" placeholder="메모 (예: 야근, 친구 결혼식) · 안 써도 돼요" value="' + esc(me.note || '') + '">' : '') +
+      }).join('') + '</div>') +
+      (me && !past && calView !== 'them' ? '<input class="memo" data-dmemo maxlength="40" placeholder="메모 (예: 야근, 친구 결혼식) · 안 써도 돼요" value="' + esc(me.note || '') + '">' : '') +
       (past ? '' : '<div class="confirmbox">' + (c
         ? '<a class="btn pri wide" style="text-align:center;text-decoration:none" href="/course.html?date=' + d + '">코스 짜러 가기 →</a><button type="button" class="btn ghost" data-act="unconfirm">확정 취소</button>'
         : '<button type="button" class="btn ' + (both ? 'pri' : '') + ' wide" data-act="confirm">💞 이날 보자</button>') + '</div>');
