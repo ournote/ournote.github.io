@@ -137,9 +137,9 @@
   .cell.both::after { content: "💞"; position: absolute; top: 2px; right: 3px; font-size: 9px; }
   .cell.conf .n { background: var(--rose); color: #fff; border-radius: 999px; padding: 0 6px; }
   .cell.hit { transform: scale(.94); }
-  /* 쭉 당겨서 고르는 중인 범위 (색은 임시) */
-  .cell.sel { background: #ece2f3; border-color: #c9b3dc; }
-  @media (prefers-color-scheme: dark) { .cell.sel { background: #3a2d47; border-color: #6c5683; } }
+  /* 쭉 당겨서 고르는 중인 범위: 연한 핑크 */
+  .cell.sel { background: #fde4ec; border-color: #f2b3c8; }
+  @media (prefers-color-scheme: dark) { .cell.sel { background: #4a2836; border-color: #8a4a63; } }
   .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--line); }
   .dot.ok { background: var(--ok); border-color: var(--ok); }
   .dot.part { background: var(--part); border-color: var(--part); }
