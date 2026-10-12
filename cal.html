@@ -176,6 +176,53 @@
   .maprow b { min-width: 40px; }
   .maprow select, .dateinp { font: inherit; font-size: 14px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 10px; padding: 6px 8px; }
   .period { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13.5px; }
+  /* 미리보기 달력 카드 */
+  .calcard { margin-top: 16px; border: 1px solid var(--line); background: var(--paper-60); border-radius: 18px; padding: 4px 10px 10px; cursor: pointer; box-shadow: var(--shadow); transition: transform .15s ease; }
+  .calcard:active { transform: scale(.99); }
+  .calcard .monthbar { margin: 10px 4px 8px; }
+  .openhint { font-size: 12px; color: var(--muted); }
+  .grid.mini .cell { height: 50px; padding-top: 4px; }
+  .grid.mini .halves { height: 20px; }
+  .grid.mini .half { font-size: 11.5px; }
+  /* 달력 화면(전체) */
+  .full { position: fixed; inset: 0; z-index: 15; background: var(--bg); display: none; flex-direction: column; clip-path: inset(0 round 0); will-change: clip-path, transform; }
+  .full.on { display: flex; }
+  .full.anim { transition: clip-path .38s cubic-bezier(.22,.8,.3,1), transform .28s ease, opacity .28s ease; }
+  .fhead { padding: calc(8px + env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 4px max(14px, env(safe-area-inset-left)); touch-action: none; }
+  .fgrip { width: 38px; height: 4px; border-radius: 4px; background: var(--line); margin: 0 auto 8px; }
+  .frow { display: flex; align-items: center; gap: 6px; }
+  .frow b { font-family: var(--serif); font-size: 34px; color: var(--plum); line-height: 1.1; }
+  .fyear { color: var(--muted); font-size: 14px; margin-left: 4px; align-self: flex-end; padding-bottom: 6px; }
+  .frow .sp { flex: 1; }
+  .fbtn { height: 32px; min-width: 32px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper); color: var(--plum); font-size: 14px; cursor: pointer; }
+  .fbtn[aria-pressed="true"] { background: var(--rose-soft); border-color: var(--rose); }
+  .fweek { display: grid; grid-template-columns: repeat(7, 1fr); margin-top: 10px; font-size: 11.5px; color: var(--muted); text-align: center; }
+  .fweek .sun { color: var(--rose); }
+  .fbody { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 4px max(10px, env(safe-area-inset-right)) calc(30px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); }
+  .grid.big { touch-action: pan-y; }
+  .grid.big .cell { height: 66px; }
+  .grid.big .halves { height: 26px; }
+  .grid .wk { display: none; }
+  .grid.mini .wk { display: block; }
+  .cell.today { background: rgba(181, 71, 106, .10); border-color: transparent; }
+  .cell.today .n { font-weight: 700; color: var(--rose); }
+  .cell.sel { border: 1.5px solid var(--plum); box-shadow: var(--shadow); }
+  .grid.onlyboth .cell:not(.both):not(.out) { opacity: .22; }
+  .grid.onlyboth .cell.both { box-shadow: 0 0 0 1.5px var(--rose) inset; }
+  /* 고른 날 정보 */
+  .dayp { margin-top: 12px; background: var(--paper-60); border: 1px solid var(--line); border-radius: 16px; padding: 14px 14px 12px; }
+  .dp-h { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .dp-h b { font-family: var(--serif); font-size: 18px; color: var(--plum); }
+  .dp-both { color: var(--rose); font-weight: 600; font-size: 13.5px; }
+  .dp-row { display: flex; gap: 10px; align-items: baseline; margin-top: 8px; font-size: 14px; }
+  .dp-row .w { color: var(--muted); font-size: 12.5px; min-width: 30px; }
+  .dp-row small { color: var(--muted); }
+  .qbtns { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-top: 12px; }
+  .qb { border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 8px 0; font-size: 12.5px; cursor: pointer; }
+  .qb[aria-pressed="true"] { border-color: var(--plum); background: var(--paper); font-weight: 700; box-shadow: var(--shadow); }
+  .qb:disabled { opacity: .4; }
+  .dayp .memo { margin-top: 8px; }
+  .dayp .confirmbox { margin-top: 10px; }
   .howto { margin: 6px 2px 0; font-size: 12px; color: var(--muted); word-break: keep-all; }
 
   /* 시트 */
@@ -224,21 +271,38 @@
 
   <div class="card" id="summary"></div>
 
-  <div class="monthbar">
-    <button type="button" id="prevM" aria-label="이전 달">‹</button>
-    <b id="monthT"></b>
-    <button type="button" id="nextM" aria-label="다음 달">›</button>
-  </div>
-  <div class="grid" id="grid"></div>
-  <div class="legend">
-    <span><span class="dot ok"></span>돼요</span>
-    <span><span class="dot part"></span>일부만</span>
-    <span><span class="dot no"></span>안 돼요</span>
-    <span><span class="tagmini c-red">수</span>고정 일정</span>
-    <span>💞 둘 다 돼요</span>
+  <!-- 달력(미리보기): 어디든 누르면 위로 올라가며 달력 화면으로 -->
+  <div class="calcard" id="calCard" role="button" tabindex="0" aria-label="달력 크게 보기">
+    <div class="monthbar"><b id="monthT"></b><span class="openhint">눌러서 크게 보기 ⌃</span></div>
+    <div class="grid mini" id="grid"></div>
+    <div class="legend">
+      <span><span class="dot ok"></span>돼요</span>
+      <span><span class="dot part"></span>일부만</span>
+      <span><span class="dot no"></span>안 돼요</span>
+      <span><span class="tagmini c-red">수</span>고정 일정</span>
+      <span>💞 둘 다 돼요</span>
+    </div>
   </div>
   <button type="button" class="rulesbtn" id="rulesBtn">🔁 고정 일정 <span id="rulesN"></span><span class="arr">›</span></button>
-  <p class="howto">날짜를 누를 때마다 돼요 → 일부만 → 안 돼요 → 지움 · 꾹 누르면 자세히(메모·낮/저녁·이날 보자)</p>
+</div>
+
+<!-- 달력 화면(전체): 나갈 때는 아래로 내리거나 왼쪽 끝에서 오른쪽으로 밀기 -->
+<div class="full" id="full" aria-hidden="true">
+  <div class="fhead" id="fhead">
+    <div class="fgrip"></div>
+    <div class="frow">
+      <b id="fMonth"></b><span class="fyear" id="fYear"></span><span class="sp"></span>
+      <button type="button" class="fbtn" id="fToday">오늘</button>
+      <button type="button" class="fbtn" id="fBoth" aria-pressed="false" aria-label="둘 다 되는 날만 보기">💞</button>
+      <button type="button" class="fbtn" id="fPrev" aria-label="이전 달">‹</button>
+      <button type="button" class="fbtn" id="fNext" aria-label="다음 달">›</button>
+    </div>
+    <div class="fweek" id="fWeek"></div>
+  </div>
+  <div class="fbody" id="fbody">
+    <div class="grid big" id="fgrid"></div>
+    <div class="dayp" id="dayp"></div>
+  </div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -405,8 +469,8 @@
 
   // ---------- 달력 ----------
   var shown = new Date(); shown = new Date(shown.getFullYear(), shown.getMonth(), 1);
-  function renderGrid() {
-    document.getElementById('monthT').textContent = shown.getFullYear() + '년 ' + (shown.getMonth() + 1) + '월';
+  var sel = today(), onlyBoth = false;
+  function renderMonth(el, big) {
     var t = today(), list = avList(), rules = ruList(), conf = {};
     dtList().forEach(function (x) { conf[x.date] = true; });
     var h = WEEK.map(function (w, i) { return '<div class="wk' + (i === 0 ? ' sun' : '') + '">' + w + '</div>'; }).join('');
@@ -421,10 +485,12 @@
       if (d < t) cls.push('past');
       if (bothLabel(me, th)) cls.push('both');
       if (conf[d]) cls.push('conf');
+      if (big && d === sel) cls.push('sel');
       h += '<div class="' + cls.join(' ') + '" data-d="' + d + '"><span class="n">' + dn + '</span>' +
         '<span class="halves">' + halfHtml('me', ruleOn(d, true, rules), mineOn(d, list)) + halfHtml('them', ruleOn(d, false, rules), theirsOn(d, list)) + '</span></div>';
     }
-    document.getElementById('grid').innerHTML = h;
+    el.innerHTML = h;
+    el.classList.toggle('onlyboth', !!(big && onlyBoth));
   }
   // 아래 반쪽 칸: 고정 일정은 글자 1개 + 바탕색, 직접 표시는 작은 점
   function halfHtml(who, rule, ex) {
@@ -432,131 +498,171 @@
     return '<span class="half ' + who + (tag ? ' tagged c-' + tag.c : '') + '">' + (tag ? esc(tag.t) : '') +
       (ex ? '<i class="dot ' + ex.st + '"></i>' : '') + '</span>';
   }
-  function renderAll() { renderSummary(); renderGrid(); renderRulesBtn(); }
-  document.getElementById('prevM').addEventListener('click', function () { shown = new Date(shown.getFullYear(), shown.getMonth() - 1, 1); renderGrid(); });
-  document.getElementById('nextM').addEventListener('click', function () { shown = new Date(shown.getFullYear(), shown.getMonth() + 1, 1); renderGrid(); });
-
-  // 누르기(상태 돌리기) · 꾹 누르기(자세히)
-  var grid = document.getElementById('grid');
-  var press = null;
-  grid.addEventListener('pointerdown', function (e) {
-    var c = e.target.closest('.cell[data-d]');
-    if (!c || c.classList.contains('past')) return;
-    press = { d: c.getAttribute('data-d'), x: e.clientX, y: e.clientY, long: false };
-    c.classList.add('hit');
-    press.timer = setTimeout(function () {
-      if (!press) return;
-      press.long = true;
-      c.classList.remove('hit');
-      openDay(press.d);
-    }, 480);
-  });
-  // 손가락이 움직이면(스크롤 등) 누른 걸로 치지 않음
-  grid.addEventListener('pointermove', function (e) {
-    if (!press || press.long) return;
-    if (Math.abs(e.clientX - press.x) < 10 && Math.abs(e.clientY - press.y) < 10) return;
-    cancelPress();
-  });
-  function cancelPress() {
-    if (!press) return;
-    clearTimeout(press.timer);
-    press = null;
-    grid.querySelectorAll('.cell.hit').forEach(function (c) { c.classList.remove('hit'); });
+  var full = document.getElementById('full'), fgrid = document.getElementById('fgrid');
+  function renderAll() {
+    renderSummary();
+    document.getElementById('monthT').textContent = shown.getFullYear() + '년 ' + (shown.getMonth() + 1) + '월';
+    renderMonth(document.getElementById('grid'), false);
+    if (full.classList.contains('on')) renderFull();
+    renderRulesBtn();
   }
-  function pressEnd() {
-    if (!press) return;
-    var p = press; press = null;
-    clearTimeout(p.timer);
-    grid.querySelectorAll('.cell.hit').forEach(function (c) { c.classList.remove('hit'); });
-    if (p.long) return;
-    var m = mineOn(p.d);
-    var nx = NEXT[m ? m.st : ''];
-    setMine(p.d, nx, m && m.part, m && m.note);
+  function renderFull() {
+    document.getElementById('fMonth').textContent = (shown.getMonth() + 1) + '월';
+    document.getElementById('fYear').textContent = shown.getFullYear();
+    document.getElementById('fBoth').setAttribute('aria-pressed', String(onlyBoth));
+    renderMonth(fgrid, true);
+    renderDay();
+  }
+  function moveMonth(n) {
+    shown = new Date(shown.getFullYear(), shown.getMonth() + n, 1);
     renderAll();
   }
-  grid.addEventListener('pointerup', pressEnd);
-  grid.addEventListener('pointercancel', cancelPress);
-  grid.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  document.getElementById('fWeek').innerHTML = WEEK.map(function (w, i) { return '<span' + (i === 0 ? ' class="sun"' : '') + '>' + w + '</span>'; }).join('');
+  document.getElementById('fPrev').addEventListener('click', function () { moveMonth(-1); });
+  document.getElementById('fNext').addEventListener('click', function () { moveMonth(1); });
+  document.getElementById('fToday').addEventListener('click', function () {
+    sel = today(); var d = new Date(); shown = new Date(d.getFullYear(), d.getMonth(), 1); renderAll();
+  });
+  document.getElementById('fBoth').addEventListener('click', function () {
+    onlyBoth = !onlyBoth; renderFull();
+    if (onlyBoth) toast('💞 둘 다 되는 날만 진하게 보여요');
+  });
   document.addEventListener('selectstart', function (e) { if (!e.target.closest || !e.target.closest('input, textarea')) e.preventDefault(); });
 
-  document.getElementById('summary').addEventListener('click', function (e) {
-    var c = e.target.closest('[data-day]');
-    if (c) openDay(c.getAttribute('data-day'));
+  // ---------- 고른 날 정보 (달력 아래) ----------
+  var QUICK = [['ok', '🟢 돼요'], ['day', '🟡 낮만'], ['eve', '🟡 저녁만'], ['no', '🔴 안 돼요'], ['', '지우기']];
+  function renderDay() {
+    var d = sel, me = mineOn(d), th = effOn(d, false), meEff = effOn(d, true), meRule = ruleOn(d, true);
+    var past = d < today();
+    function desc(x) { return (x.st === 'part' && x.part ? PART_TEXT[x.part] : (ST_TEXT[x.st] || '')) + (x.note ? ' · ' + x.note : ''); }
+    var cur = me ? (me.st === 'part' ? (me.part || 'eve') : me.st) : null;
+    var both = bothLabel(meEff, th), c = confirmedOn(d);
+    var html = '<div class="dp-h"><b>' + esc(mdw(d)) + '</b>' + (c ? '<span class="dp-both">💞 이날 보기로 했어요</span>' : both ? '<span class="dp-both">💞 둘 다 돼요 · ' + both + '</span>' : '') + '</div>' +
+      '<div class="dp-row"><span class="w">나</span><span>' + (meEff ? esc(desc(meEff)) : '<small>표시 없음</small>') +
+        (!me && meRule ? ' <small>(🔁 ' + esc(ruleLabel(meRule.rule)) + ')</small>' : me && meRule ? ' <small>· 원래 ' + esc(meRule.note || ST_TEXT[meRule.st]) + '</small>' : '') + '</span></div>' +
+      '<div class="dp-row"><span class="w">상대</span><span>' + (th ? esc(desc(th)) + (th.auto ? ' <small>(🔁 ' + esc(ruleLabel(th.rule)) + ')</small>' : '') : '<small>' + (connected() ? '아직 표시 안 했어요' : '같이 쓰기를 연결하면 보여요') + '</small>') + '</span></div>' +
+      '<div class="qbtns">' + QUICK.map(function (q) {
+        return '<button type="button" class="qb" data-q="' + q[0] + '" aria-pressed="' + (cur === q[0] || (!cur && q[0] === '' && false)) + '"' + (past ? ' disabled' : '') + '>' + q[1] + '</button>';
+      }).join('') + '</div>' +
+      (me && !past ? '<input class="memo" data-dmemo maxlength="40" placeholder="메모 (예: 야근, 친구 결혼식) · 안 써도 돼요" value="' + esc(me.note || '') + '">' : '') +
+      (past ? '' : '<div class="confirmbox">' + (c
+        ? '<a class="btn pri wide" style="text-align:center;text-decoration:none" href="/course.html?date=' + d + '">코스 짜러 가기 →</a><button type="button" class="btn ghost" data-act="unconfirm">확정 취소</button>'
+        : '<button type="button" class="btn ' + (both ? 'pri' : '') + ' wide" data-act="confirm">💞 이날 보자</button>') + '</div>');
+    document.getElementById('dayp').innerHTML = html;
+  }
+  document.getElementById('dayp').addEventListener('click', function (e) {
+    var q = e.target.closest('[data-q]');
+    if (q) {
+      var k = q.getAttribute('data-q'), m = mineOn(sel), ch = CHOICE[k];
+      setMine(sel, ch ? ch.st : '', ch ? ch.part : '', m && m.note);
+      renderAll();
+      return;
+    }
+    var a = e.target.closest('[data-act]');
+    if (!a) return;
+    if (a.getAttribute('data-act') === 'confirm') { setConfirmed(sel, true); renderAll(); toast('💞 ' + mdw(sel) + ' 데이트로 정했어요'); }
+    else if (a.getAttribute('data-act') === 'unconfirm') { setConfirmed(sel, false); renderAll(); toast('확정을 취소했어요'); }
+  });
+  document.getElementById('dayp').addEventListener('change', function (e) {
+    if (!e.target.matches('[data-dmemo]')) return;
+    var m = mineOn(sel);
+    if (m) { setMine(sel, m.st, m.part, e.target.value.trim()); renderAll(); toast('메모를 저장했어요'); }
   });
 
-  // ---------- 하루 자세히 ----------
-  function openDay(d) {
-    var me = mineOn(d), th = effOn(d, false), meAuto = me ? null : effOn(d, true);
-    var st = me ? me.st : '', part = me ? (me.part || '') : '', note = me ? (me.note || '') : '';
-    var past = d < today();
-    function desc(x) { return (ST_TEXT[x.st] || '') + (x.st === 'part' && x.part ? ' · ' + PART_TEXT[x.part] : '') + (x.note ? ' · ‘' + x.note + '’' : ''); }
-    var thText = th ? desc(th) + (th.auto ? ' (🔁 ' + ruleLabel(th.rule) + ')' : '')
-      : (connected() ? '아직 표시 안 했어요' : '같이 쓰기를 연결하면 보여요');
-    var html = '<h2>' + esc(mdw(d)) + '</h2>' +
-      '<div class="who">나</div>' +
-      (meAuto ? '<div class="autonote">🔁 고정 일정(' + esc(ruleLabel(meAuto.rule)) + '): ' + esc(desc(meAuto)) + '<br><small>아래에서 고르면 이날만 바꿔요</small></div>' : '') +
-      '<div class="states">' + ['ok', 'part', 'no', ''].map(function (k) {
-        return '<button type="button" class="st" data-st="' + k + '" aria-pressed="' + (st === k) + '">' +
-          (k === 'ok' ? '🟢 돼요' : k === 'part' ? '🟡 일부만' : k === 'no' ? '🔴 안 돼요' : '지우기') + '</button>';
-      }).join('') + '</div>' +
-      '<div class="parts" data-parts' + (st === 'part' ? '' : ' hidden') + '>' + ['day', 'eve', ''].map(function (k) {
-        return '<button type="button" class="pt" data-part="' + k + '" aria-pressed="' + (part === k) + '">' + (k ? PART_TEXT[k] : '정확히 몰라요') + '</button>';
-      }).join('') + '</div>' +
-      '<input class="memo" data-memo maxlength="40" placeholder="메모 (예: 야근, 친구 결혼식) · 안 써도 돼요" value="' + esc(note) + '">' +
-      '<div class="who">상대</div><div class="theirs">' + esc(thText) + '</div>' +
-      '<div class="confirmbox" data-confirm></div>' +
-      '<div class="acts"><button type="button" class="btn" data-act="close">닫기</button><button type="button" class="btn pri" data-act="save">저장</button></div>';
-    openSheet(html, function (bs) {
-      function paintConfirm() {
-        var box = bs.querySelector('[data-confirm]');
-        var c = confirmedOn(d);
-        if (c) {
-          box.innerHTML = '<div class="msg">💞 이날 보기로 했어요</div>' +
-            '<a class="btn pri wide" style="text-align:center;text-decoration:none" href="/course.html?date=' + d + '">코스 짜러 가기 →</a>' +
-            '<button type="button" class="btn ghost" data-act="unconfirm">확정 취소</button>';
-        } else if (past) {
-          box.hidden = true;
-        } else {
-          var both = bothLabel(st ? { st: st, part: part } : meAuto, th);
-          box.innerHTML = (both ? '<div class="msg">둘 다 돼요 · ' + both + '</div>' : '') +
-            '<button type="button" class="btn ' + (both ? 'pri' : '') + ' wide" data-act="confirm">💞 이날 보자</button>';
-        }
-      }
-      paintConfirm();
-      bs.addEventListener('click', function (e) {
-        var s = e.target.closest('[data-st]');
-        if (s) {
-          st = s.getAttribute('data-st');
-          bs.querySelectorAll('[data-st]').forEach(function (b) { b.setAttribute('aria-pressed', String(b === s)); });
-          bs.querySelector('[data-parts]').hidden = st !== 'part';
-          paintConfirm();
-          return;
-        }
-        var p = e.target.closest('[data-part]');
-        if (p) {
-          part = p.getAttribute('data-part');
-          bs.querySelectorAll('[data-part]').forEach(function (b) { b.setAttribute('aria-pressed', String(b === p)); });
-          paintConfirm();
-          return;
-        }
-        var a = e.target.closest('[data-act]');
-        if (!a) return;
-        var act = a.getAttribute('data-act');
-        if (act === 'close') closeSheet();
-        else if (act === 'save') {
-          setMine(d, st, part, bs.querySelector('[data-memo]').value.trim());
-          renderAll(); closeSheet(); toast('저장했어요');
-        } else if (act === 'confirm') {
-          setMine(d, st, part, bs.querySelector('[data-memo]').value.trim());
-          setConfirmed(d, true);
-          renderAll(); paintConfirm(); toast('💞 ' + mdw(d) + ' 데이트로 정했어요');
-        } else if (act === 'unconfirm') {
-          setConfirmed(d, false);
-          renderAll(); paintConfirm(); toast('확정을 취소했어요');
-        }
-      });
-    });
+  // 달력 화면: 날짜 누르면 고르기, 옆으로 밀면 달 넘기기
+  var fsw = null;
+  fgrid.addEventListener('pointerdown', function (e) { fsw = { x: e.clientX, y: e.clientY, t: Date.now() }; });
+  fgrid.addEventListener('pointerup', function (e) {
+    if (!fsw) return;
+    var dx = e.clientX - fsw.x, dy = e.clientY - fsw.y; fsw = null;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) { moveMonth(dx < 0 ? 1 : -1); return; }
+    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) return;
+    var c = e.target.closest('.cell[data-d]');
+    if (!c) return;
+    sel = c.getAttribute('data-d');
+    renderFull();
+  });
+  fgrid.addEventListener('pointercancel', function () { fsw = null; });
+
+  // ---------- 달력 화면 열기 / 닫기 (미리보기 카드에서 위로 커지며) ----------
+  var calCard = document.getElementById('calCard');
+  function insetOf(r) {
+    return 'inset(' + Math.max(0, r.top) + 'px ' + Math.max(0, innerWidth - r.right) + 'px ' + Math.max(0, innerHeight - r.bottom) + 'px ' + Math.max(0, r.left) + 'px round 18px)';
   }
+  function openFull(d) {
+    if (full.classList.contains('on')) return;
+    if (d) { sel = d; var dd = parse(d); shown = new Date(dd.getFullYear(), dd.getMonth(), 1); }
+    var r = calCard.getBoundingClientRect();
+    full.classList.remove('anim');
+    full.style.clipPath = insetOf(r);
+    full.style.transform = '';
+    full.style.opacity = '';
+    full.classList.add('on');
+    full.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('locked');
+    renderFull();
+    document.getElementById('fbody').scrollTop = 0;
+    void full.offsetWidth;
+    full.classList.add('anim');
+    full.style.clipPath = 'inset(0px 0px 0px 0px round 0px)';
+    try { history.pushState({ full: 1 }, ''); } catch (err) { /* 없어도 됨 */ }
+  }
+  function closeFull(fromPop) {
+    if (!full.classList.contains('on')) return;
+    if (!fromPop) { try { if (history.state && history.state.full) { history.back(); return; } } catch (err) { /* 없어도 됨 */ } }
+    full.classList.add('anim');
+    var r = calCard.getBoundingClientRect();
+    if (!full.style.transform) full.style.clipPath = insetOf(r);
+    else full.style.opacity = '0';
+    setTimeout(function () {
+      full.classList.remove('on', 'anim');
+      full.setAttribute('aria-hidden', 'true');
+      full.style.transform = ''; full.style.opacity = ''; full.style.clipPath = '';
+      document.body.classList.remove('locked');
+      renderAll();
+    }, 360);
+  }
+  window.addEventListener('popstate', function () { if (full.classList.contains('on')) closeFull(true); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && full.classList.contains('on') && !stack.length) closeFull(); });
+  calCard.addEventListener('click', function () { openFull(sel); });
+  calCard.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openFull(sel); } });
+  document.getElementById('summary').addEventListener('click', function (e) {
+    var c = e.target.closest('[data-day]');
+    if (c) openFull(c.getAttribute('data-day'));
+  });
+  // 나가기: 위쪽을 잡고 아래로 내리거나, 왼쪽 끝에서 오른쪽으로 밀기
+  var drag = null;
+  full.addEventListener('pointerdown', function (e) {
+    var head = e.target.closest('#fhead') && !e.target.closest('button');
+    var edge = e.clientX < 28;
+    if (!head && !edge) return;
+    drag = { x: e.clientX, y: e.clientY, mode: edge ? 'x' : 'y', id: e.pointerId, on: false };
+  });
+  full.addEventListener('pointermove', function (e) {
+    if (!drag) return;
+    var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.on) {
+      if (drag.mode === 'y' && dy > 8 && dy > Math.abs(dx)) drag.on = true;
+      else if (drag.mode === 'x' && dx > 8 && dx > Math.abs(dy)) drag.on = true;
+      else if (Math.abs(dx) > 12 || Math.abs(dy) > 12) { drag = null; return; }
+      if (drag && drag.on) { try { full.setPointerCapture(drag.id); } catch (err) { /* 없어도 됨 */ } full.classList.remove('anim'); }
+      return;
+    }
+    full.style.transform = drag.mode === 'y' ? 'translateY(' + Math.max(0, dy) + 'px)' : 'translateX(' + Math.max(0, dx) + 'px)';
+  });
+  function dragEnd(e) {
+    if (!drag) return;
+    var d = drag; drag = null;
+    if (!d.on) return;
+    var dist = d.mode === 'y' ? e.clientY - d.y : e.clientX - d.x;
+    full.classList.add('anim');
+    if (dist > 90) {
+      full.style.transform = d.mode === 'y' ? 'translateY(100%)' : 'translateX(100%)';
+      closeFull();
+    } else full.style.transform = '';
+  }
+  full.addEventListener('pointerup', dragEnd);
+  full.addEventListener('pointercancel', dragEnd);
 
   // ---------- 고정 일정 목록 · 편집 ----------
   function renderRulesBtn() {
