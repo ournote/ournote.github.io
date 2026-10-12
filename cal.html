@@ -245,8 +245,8 @@
   .fwho button[style][aria-pressed="true"] { background: var(--c); border-color: var(--c); color: #fff; }
   .fwho button[style][aria-pressed="true"] small { color: rgba(255, 255, 255, .85); }
   /* 전체 = 노랑(글자는 읽히게 진하게) */
-  .fwho button[data-view="both"] { color: #a07c12; }
-  .fwho button[data-view="both"][aria-pressed="true"] { color: #3d2f05; }
+  .fwho button[data-view="both"], .fwho button[data-view="both"][aria-pressed="true"] { background: color-mix(in srgb, #f0d06a 22%, var(--paper)); border-color: color-mix(in srgb, #e3b52c 55%, transparent); color: #b08710; }
+  .fwho button[data-view="both"][aria-pressed="true"] { border: 1.5px solid #e3b52c; }
   .b-red { --bf: rgba(217, 71, 79, .18); --bc: #d9474f; }
   .b-yellow { --bf: rgba(230, 189, 58, .24); --bc: #d9a91e; }
   .b-blue { --bf: rgba(70, 120, 210, .20); --bc: #4678d2; }
