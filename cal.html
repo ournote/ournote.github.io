@@ -245,7 +245,7 @@
   .fwho button[style][aria-pressed="true"] { background: var(--c); border-color: var(--c); color: #fff; }
   .fwho button[style][aria-pressed="true"] small { color: rgba(255, 255, 255, .85); }
   /* 전체 = 노랑(글자는 읽히게 진하게) */
-  .fwho button[data-view="both"] { color: #9a7406; }
+  .fwho button[data-view="both"] { color: #a07c12; }
   .fwho button[data-view="both"][aria-pressed="true"] { color: #3d2f05; }
   .b-red { --bf: rgba(217, 71, 79, .18); --bc: #d9474f; }
   .b-yellow { --bf: rgba(230, 189, 58, .24); --bc: #d9a91e; }
@@ -279,7 +279,7 @@
   .qb[aria-pressed="true"] { border-color: var(--plum); background: var(--paper); font-weight: 700; box-shadow: var(--shadow); }
   .qb:disabled { opacity: .4; }
   .dayp .memo { margin-top: 8px; }
-  .dayp .confirmbox { margin-top: 10px; }
+  .dayp .confirmbox { margin-top: 12px; background: transparent; padding: 0; }
   .howto { margin: 6px 2px 0; font-size: 12px; color: var(--muted); word-break: keep-all; }
 
   /* 시트 */
@@ -696,7 +696,7 @@
   var calView = 'both';
   try { calView = localStorage.getItem(VIEW_KEY) || 'both'; } catch (e) { calView = 'both'; }
   if (['me', 'them', 'both'].indexOf(calView) < 0) calView = 'both';
-  var CVAR = { bf: '#4678d2', gf: '#e5699a', all: '#e3b52c' };
+  var CVAR = { bf: '#4678d2', gf: '#e5699a', all: '#f0d06a' };
   function paintWho() {
     var nm = names(), n = nmRaw();
     var meSet = asThem ? n.them : n.me, themSet = asThem ? n.me : n.them;
@@ -783,7 +783,7 @@
       }).join('') : '<div class="muted" style="padding:6px 2px">일정 없어요</div>') + '</div>' +
       (past ? '' : '<div class="confirmbox">' + (c
         ? '<a class="btn pri wide" style="text-align:center;text-decoration:none" href="/course.html?date=' + d + '">코스 짜러 가기 →</a><button type="button" class="btn ghost" data-act="unconfirm">확정 취소</button>'
-        : '<button type="button" class="btn ' + (both ? 'pri' : '') + ' wide" data-act="confirm">💞 이날 보자</button>') + '</div>');
+        : '<button type="button" class="btn ' + (both ? 'pri' : '') + ' wide" data-act="confirm">💞 이날로 확정</button>') + '</div>');
     document.getElementById('dayp').innerHTML = html;
   }
   document.getElementById('dayp').addEventListener('click', function (e) {
