@@ -36,7 +36,10 @@ const COLS = [
     read: () => { const c = courseStore(); return c && Array.isArray(c.stops) ? c.stops : []; },
     write: (list) => { const c = courseStore() || { stops: [], ranges: [], view: { start: '', end: '' } }; c.stops = list; writeRaw('ournote:course2', c); },
     stamp: true // 누가 넣었는지(who) 기록
-  }
+  },
+  // 우리 달력: 각자 되는 날 / 이날 보자(확정)
+  { name: 'avail', key: 'ournote:avail', valid: (x) => x && typeof x === 'object' && typeof x.id === 'string' && x.id && /^\d{4}-\d{2}-\d{2}$/.test(x.date || ''), stamp: true },
+  { name: 'dates', key: 'ournote:dates', valid: (x) => x && typeof x === 'object' && typeof x.id === 'string' && x.id && /^\d{4}-\d{2}-\d{2}$/.test(x.date || ''), stamp: true }
 ];
 // 코스 화면을 아직 안 열어서 예전 형식만 있으면 코스 화면과 같은 방법으로 옮겨 둠(덮어써서 잃지 않게)
 function courseStore() {
@@ -225,7 +228,7 @@ function reconcile(col, R, full) {
 let flushTimer = null;
 Storage.prototype.setItem = function (k, v) {
   rawSet.call(this, k, v);
-  if (this === localStorage && (k === 'ournote:items' || k === 'ournote:course2')) window.dispatchEvent(new Event('ournote:changed'));
+  if (this === localStorage && BK_DATA.indexOf(k) >= 0) window.dispatchEvent(new Event('ournote:changed'));
   if (this === localStorage && state.cid && COLS.some((c) => c.key === k)) {
     clearTimeout(flushTimer);
     flushTimer = setTimeout(() => COLS.forEach(flush), 300);
@@ -598,7 +601,7 @@ function toast(msg) {
 //    → 코드를 모르면 누구도(서버 주인도) 못 열어봄. 🔒 나만 보기 약속과 데이트 코스까지 전부.
 // A. 파일 백업: 'Ournote 백업파일.json'
 const BK_KEY = 'ournote:backup'; // { code, lastHash, lastAt }
-const BK_DATA = ['ournote:items', 'ournote:course2'];
+const BK_DATA = ['ournote:items', 'ournote:course2', 'ournote:avail', 'ournote:dates'];
 const BK_DELAY = 30 * 1000;
 let bk = readJSON(BK_KEY, null);
 if (!bk || typeof bk !== 'object') bk = { code: '', lastHash: '', lastAt: 0 };
@@ -624,12 +627,14 @@ function b64(bytes) { let s = ''; bytes.forEach((b) => { s += String.fromCharCod
 function unb64(str) { return Uint8Array.from(atob(str), (c) => c.charCodeAt(0)); }
 
 function snapshot() {
-  return { app: 'ournote', v: 2, savedAt: Date.now(), items: readJSON('ournote:items', []), course2: readJSON('ournote:course2', null) };
+  return { app: 'ournote', v: 2, savedAt: Date.now(), items: readJSON('ournote:items', []), course2: readJSON('ournote:course2', null),
+    avail: readJSON('ournote:avail', []), dates: readJSON('ournote:dates', []) };
 }
 function counts(d) {
   const items = Array.isArray(d.items) ? d.items.length : 0;
   const stops = d.course2 && Array.isArray(d.course2.stops) ? d.course2.stops.length : 0;
-  return '약속 ' + items + '개 · 코스 일정 ' + stops + '개';
+  const days = (Array.isArray(d.avail) ? d.avail.length : 0);
+  return '약속 ' + items + '개 · 코스 일정 ' + stops + '개' + (days ? ' · 달력 표시 ' + days + '개' : '');
 }
 function fmtTime(ms) {
   if (!ms) return '';
@@ -641,7 +646,7 @@ let bkTimer = null, bkBusy = false;
 async function backupNow(force) {
   if (!bk.code || bkBusy) return false;
   const data = snapshot();
-  const h = await sha(canon({ items: data.items, course2: data.course2 }));
+  const h = await sha(canon({ items: data.items, course2: data.course2, avail: data.avail, dates: data.dates }));
   if (!force && h === bk.lastHash) return true; // 바뀐 게 없으면 안 씀
   bkBusy = true;
   try {
@@ -692,6 +697,8 @@ function mergeById(cur, add) {
 function restoreData(d) {
   const items = (Array.isArray(d) ? d : d.items || []).filter((x) => x && typeof x.title === 'string' && x.title.trim());
   localStorage.setItem('ournote:items', JSON.stringify(mergeById(readJSON('ournote:items', []), items)));
+  if (Array.isArray(d.avail)) localStorage.setItem('ournote:avail', JSON.stringify(mergeById(readJSON('ournote:avail', []), d.avail)));
+  if (Array.isArray(d.dates)) localStorage.setItem('ournote:dates', JSON.stringify(mergeById(readJSON('ournote:dates', []), d.dates)));
   if (d.course2 && Array.isArray(d.course2.stops)) {
     const cur = readJSON('ournote:course2', null) || { stops: [], ranges: [], view: d.course2.view || { start: '', end: '' } };
     cur.stops = mergeById(cur.stops, d.course2.stops);
