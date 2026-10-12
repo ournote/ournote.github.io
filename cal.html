@@ -103,9 +103,30 @@
   .wk { text-align: center; font-size: 11.5px; color: var(--muted); padding-bottom: 2px; }
   .wk.sun { color: var(--rose); }
   .cell {
-    position: relative; height: 54px; border-radius: 12px; border: 1px solid transparent; background: var(--paper-60);
-    display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 6px; cursor: pointer;
+    position: relative; height: 58px; border-radius: 12px; border: 1px solid transparent; background: var(--paper-60);
+    display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 5px 3px 3px; cursor: pointer;
     transition: background .15s ease, transform .1s ease;
+  }
+  /* 아래 반쪽: 왼쪽 나, 오른쪽 상대 */
+  .halves { display: flex; gap: 2px; width: 100%; height: 24px; }
+  .half { flex: 1; min-width: 0; position: relative; border-radius: 6px; display: grid; place-items: center; font-size: 12.5px; font-weight: 700; line-height: 1; }
+  .half .dot { width: 9px; height: 9px; border: 0; }
+  .half.tagged .dot { position: absolute; top: 2px; right: 2px; width: 7px; height: 7px; box-shadow: 0 0 0 1.5px var(--paper); }
+  .c-red { background: #f6cfd2; color: #b3313b; }
+  .c-yellow { background: #f7e6a6; color: #806300; }
+  .c-blue { background: #c8d9f5; color: #2c57a3; }
+  .c-sky { background: #e4edfb; color: #6a8cc6; }
+  .c-green { background: #cdeedc; color: #2d7a50; }
+  .c-purple { background: #e4d7f5; color: #6b46a3; }
+  .c-gray { background: #e6e2e5; color: #6d6570; }
+  @media (prefers-color-scheme: dark) {
+    .c-red { background: #5a2a30; color: #f3a9b0; }
+    .c-yellow { background: #57491c; color: #f2d77a; }
+    .c-blue { background: #263f66; color: #a9c6f5; }
+    .c-sky { background: #2a3445; color: #a5bbdf; }
+    .c-green { background: #234634; color: #9fdcbb; }
+    .c-purple { background: #3d2f55; color: #cdb6ef; }
+    .c-gray { background: #3a3439; color: #c9c0c6; }
   }
   .cell.out { visibility: hidden; }
   .cell .n { font-size: 14px; font-variant-numeric: tabular-nums; line-height: 1.2; }
@@ -116,15 +137,13 @@
   .cell.both::after { content: "💞"; position: absolute; top: 2px; right: 3px; font-size: 9px; }
   .cell.conf .n { background: var(--rose); color: #fff; border-radius: 999px; padding: 0 6px; }
   .cell.hit { transform: scale(.94); }
-  .dots { display: flex; gap: 5px; margin-top: 7px; }
-  .dot { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--line); }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--line); }
   .dot.ok { background: var(--ok); border-color: var(--ok); }
   .dot.part { background: var(--part); border-color: var(--part); }
   .dot.no { background: var(--no); border-color: var(--no); }
   .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 10px 2px 0; font-size: 12px; color: var(--muted); align-items: center; }
   .legend .dot { display: inline-block; vertical-align: -1px; margin-right: 3px; }
-  /* 고정 일정으로 칠해진 날: 테두리만 진하게 */
-  .dot.auto { background: transparent; border-width: 2px; }
+  .tagmini { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 4px; font-size: 10.5px; font-weight: 700; margin-right: 3px; vertical-align: -3px; }
   .autonote { font-size: 13px; color: var(--ink); background: var(--bg); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; line-height: 1.5; }
   .autonote small { color: var(--muted); }
   .rulesbtn { display: flex; align-items: center; gap: 6px; width: 100%; margin-top: 12px; border: 1px solid var(--line); background: var(--paper-60); border-radius: 14px; padding: 11px 14px; font-size: 14.5px; color: var(--plum); font-weight: 600; cursor: pointer; text-align: left; }
@@ -141,6 +160,11 @@
   .mdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
   .tog { border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 7px 0; font-size: 13.5px; cursor: pointer; }
   .tog[aria-pressed="true"] { border-color: var(--rose); background: var(--rose-soft); color: var(--rose); font-weight: 600; }
+  .colors { display: flex; flex-wrap: wrap; gap: 6px; }
+  .col { border: 1.5px solid transparent; border-radius: 999px; padding: 5px 11px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+  .col.none { background: var(--bg); color: var(--muted); border-color: var(--line); font-weight: 400; }
+  .col[aria-pressed="true"] { border-color: var(--plum); }
+  .ritem .prev { display: flex; gap: 2px; min-width: 20px; }
   .seq { display: flex; flex-wrap: wrap; gap: 4px; min-height: 34px; align-items: center; border: 1px dashed var(--line); border-radius: 12px; padding: 6px; }
   .seq .sq { border-radius: 8px; background: var(--bg); border: 1px solid var(--line); padding: 3px 8px; font-size: 13px; }
   .seq .ph { color: var(--muted); font-size: 12.5px; padding: 0 4px; }
@@ -207,6 +231,7 @@
     <span><span class="dot ok"></span>돼요</span>
     <span><span class="dot part"></span>일부만</span>
     <span><span class="dot no"></span>안 돼요</span>
+    <span><span class="tagmini c-red">수</span>고정 일정</span>
     <span>💞 둘 다 돼요</span>
   </div>
   <button type="button" class="rulesbtn" id="rulesBtn">🔁 고정 일정 <span id="rulesN"></span><span class="arr">›</span></button>
@@ -277,6 +302,15 @@
   var CHOICE = { ok: { st: 'ok', part: '' }, day: { st: 'part', part: 'day' }, eve: { st: 'part', part: 'eve' }, no: { st: 'no', part: '' } };
   var CHOICE_TEXT = { ok: '🟢 돼요', day: '🟡 낮만', eve: '🟡 저녁만', no: '🔴 안 돼요' };
   var SHIFT_TYPES = [['주간', 'eve'], ['야간', 'no'], ['비번', 'eve'], ['휴무', 'ok']];
+  // 달력 칸에 보이는 고정 일정 글자 색. 휴무는 표시 안 함
+  var SHIFT_COLOR = { '주간': 'yellow', '야간': 'blue', '비번': 'sky', '휴무': '' };
+  var COLORS = [['red', '빨강'], ['yellow', '노랑'], ['blue', '파랑'], ['green', '초록'], ['purple', '보라'], ['gray', '회색'], ['', '표시 안 함']];
+  function ruleColor(r) {
+    if (r.color !== undefined) return r.color;
+    if (/수업/.test(r.note || '') || r.ch === 'no') return 'red';
+    if (r.ch === 'day' || r.ch === 'eve') return 'yellow';
+    return '';
+  }
   function ruList() { var v = readJSON(RU_KEY, []); return Array.isArray(v) ? v.filter(function (x) { return x && x.id && x.kind; }) : []; }
   function dayDiff(a, b) { return Math.round((parse(b) - parse(a)) / 86400000); }
   function weekStart(s) { var d = parse(s); d.setDate(d.getDate() - d.getDay()); return ymd(d); }
@@ -297,7 +331,9 @@
       note = name;
     } else return null;
     var c = CHOICE[ch] || CHOICE.no;
-    return { st: c.st, part: c.part, note: note, auto: true, rule: r };
+    var color = r.kind === 'shift' ? (SHIFT_COLOR[note] !== undefined ? SHIFT_COLOR[note] : 'gray') : ruleColor(r);
+    var tag = color ? { t: (note || '').charAt(0), c: color } : null;
+    return { st: c.st, part: c.part, note: note, auto: true, rule: r, tag: tag };
   }
   function ruleLabel(r) {
     var dn = (r.days || []).slice().sort().map(function (i) { return WEEK[i]; }).join('·');
@@ -308,10 +344,8 @@
     return '';
   }
   // 그날 실제 상태: 직접 표시 > 고정 일정
-  function effOn(d, mine, av, rules) {
-    var ex = mine ? mineOn(d, av) : theirsOn(d, av);
-    if (ex) return ex;
-    // 고정 일정이 여러 개 겹치면 더 빡빡한 쪽(안 돼요 > 일부만 > 돼요)
+  // 고정 일정이 여러 개 겹치면 더 빡빡한 쪽(안 돼요 > 일부만 > 돼요)
+  function ruleOn(d, mine, rules) {
     var rank = { no: 3, part: 2, ok: 1 }, best = null;
     (rules || ruList()).forEach(function (r) {
       if (isMine(r) !== mine) return;
@@ -319,6 +353,10 @@
       if (m && (!best || rank[m.st] >= rank[best.st])) best = m;
     });
     return best;
+  }
+  function effOn(d, mine, av, rules) {
+    var ex = mine ? mineOn(d, av) : theirsOn(d, av);
+    return ex || ruleOn(d, mine, rules);
   }
 
   function free(x) { return !!x && (x.st === 'ok' || x.st === 'part'); }
@@ -381,10 +419,15 @@
       if (bothLabel(me, th)) cls.push('both');
       if (conf[d]) cls.push('conf');
       h += '<div class="' + cls.join(' ') + '" data-d="' + d + '"><span class="n">' + dn + '</span>' +
-        '<span class="dots"><span class="dot' + (me ? ' ' + me.st + (me.auto ? ' auto' : '') : '') + '"></span>' +
-        '<span class="dot them' + (th ? ' ' + th.st + (th.auto ? ' auto' : '') : '') + '"></span></span></div>';
+        '<span class="halves">' + halfHtml('me', ruleOn(d, true, rules), mineOn(d, list)) + halfHtml('them', ruleOn(d, false, rules), theirsOn(d, list)) + '</span></div>';
     }
     document.getElementById('grid').innerHTML = h;
+  }
+  // 아래 반쪽 칸: 고정 일정은 글자 1개 + 바탕색, 직접 표시는 작은 점
+  function halfHtml(who, rule, ex) {
+    var tag = rule && rule.tag;
+    return '<span class="half ' + who + (tag ? ' tagged c-' + tag.c : '') + '">' + (tag ? esc(tag.t) : '') +
+      (ex ? '<i class="dot ' + ex.st + '"></i>' : '') + '</span>';
   }
   function renderAll() { renderSummary(); renderGrid(); renderRulesBtn(); }
   document.getElementById('prevM').addEventListener('click', function () { shown = new Date(shown.getFullYear(), shown.getMonth() - 1, 1); renderGrid(); });
@@ -424,8 +467,12 @@
   function paintCell(d) {
     if (press.done[d]) return;
     press.done[d] = true;
-    var el = grid.querySelector('.cell[data-d="' + d + '"] .dot:not(.them)');
-    if (el) el.className = 'dot' + (press.paint ? ' ' + press.paint : '');
+    var half = grid.querySelector('.cell[data-d="' + d + '"] .half.me');
+    if (!half) return;
+    var el = half.querySelector('.dot');
+    if (!press.paint) { if (el) el.remove(); return; }
+    if (!el) { el = document.createElement('i'); half.appendChild(el); }
+    el.className = 'dot ' + press.paint;
   }
   function pressEnd() {
     if (!press) return;
@@ -540,7 +587,10 @@
       '<div class="rlist">' + (mine.length ? mine.map(function (r) {
         var sub = r.kind === 'shift' ? (r.seq || []).join('→') : (CHOICE_TEXT[r.ch] || '') + (r.note ? ' · ' + r.note : '');
         sub += r.until ? ' · ' + mdShort(r.until) + '까지' : '';
-        return '<button type="button" class="ritem" data-rid="' + esc(r.id) + '"><span><div class="t">' + esc(ruleLabel(r)) + '</div><div class="s">' + esc(sub) + '</div></span></button>';
+        var col = r.kind === 'shift' ? '' : ruleColor(r);
+        var prev = r.kind === 'shift' ? (r.seq || []).filter(function (x, i, a) { return a.indexOf(x) === i && SHIFT_COLOR[x]; }).map(function (x) { return '<span class="tagmini c-' + SHIFT_COLOR[x] + '">' + esc(x.charAt(0)) + '</span>'; }).join('')
+          : (col ? '<span class="tagmini c-' + col + '">' + esc((r.note || '').charAt(0)) + '</span>' : '');
+        return '<button type="button" class="ritem" data-rid="' + esc(r.id) + '"><span class="prev">' + prev + '</span><span><div class="t">' + esc(ruleLabel(r)) + '</div><div class="s">' + esc(sub) + '</div></span></button>';
       }).join('') : '<div class="muted">아직 없어요.</div>') + '</div>' +
       '<div class="acts"><button type="button" class="btn" data-act="close">닫기</button><button type="button" class="btn pri" data-act="add">＋ 추가</button></div>';
     openSheet(html, function (bs) {
@@ -575,7 +625,10 @@
       '<div data-pane="state"><div class="who">그날은</div><div class="seg4" data-chs>' + ['ok', 'day', 'eve', 'no'].map(function (k) {
         return '<button type="button" data-ch="' + k + '">' + CHOICE_TEXT[k] + '</button>';
       }).join('') + '</div>' +
-      '<input class="memo" data-rnote maxlength="20" placeholder="메모 (예: 수업, 알바, 필라테스)" value="' + esc(r.note || '') + '"></div>' +
+      '<input class="memo" data-rnote maxlength="20" placeholder="메모 (예: 수업, 알바, 필라테스)" value="' + esc(r.note || '') + '">' +
+      '<div class="who">달력에 보이는 색 (메모 첫 글자가 칸에 표시돼요)</div><div class="colors">' + COLORS.map(function (c) {
+        return '<button type="button" class="col' + (c[0] ? ' c-' + c[0] : ' none') + '" data-col="' + c[0] + '">' + c[1] + '</button>';
+      }).join('') + '</div></div>' +
       '<div class="who" data-fromlab>기간</div><div class="period"><input type="date" class="dateinp" data-from value="' + esc(r.from || today()) + '"> ~ ' +
         '<input type="date" class="dateinp" data-until value="' + esc(r.until || '') + '"><span class="muted">(끝 날짜 비우면 계속)</span></div>' +
       '<div class="acts">' + (orig ? '<button type="button" class="btn ghost" data-act="del">삭제</button><span class="sp"></span>' : '') +
@@ -592,6 +645,9 @@
         bs.querySelectorAll('[data-wd]').forEach(function (b) { b.setAttribute('aria-pressed', String((r.days || []).indexOf(+b.getAttribute('data-wd')) >= 0)); });
         bs.querySelectorAll('[data-md]').forEach(function (b) { b.setAttribute('aria-pressed', String((r.mdays || []).indexOf(+b.getAttribute('data-md')) >= 0)); });
         bs.querySelectorAll('[data-ch]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-ch') === r.ch)); });
+        r.note = bs.querySelector('[data-rnote]').value.trim();
+        var col = ruleColor(r);
+        bs.querySelectorAll('[data-col]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-col') === col)); });
         var seq = r.seq || [];
         bs.querySelector('[data-seq]').innerHTML = seq.length ? seq.map(function (x, i) { return '<span class="sq">' + (i + 1) + '. ' + esc(x) + '</span>'; }).join('') : '<span class="ph">예) 주간 → 주간 → 야간 → 야간 → 비번 → 휴무</span>';
         var used = {};
@@ -603,6 +659,7 @@
         }).join('') : '<div class="muted">순서를 쌓으면 여기서 정할 수 있어요.</div>';
       }
       paint();
+      bs.querySelector('[data-rnote]').addEventListener('input', paint); // '수업'이라고 쓰면 빨강 등 기본 색 따라감
       bs.addEventListener('change', function (e) {
         var m = e.target.closest('[data-map]');
         if (m) r.map[m.getAttribute('data-map')] = m.value;
@@ -616,6 +673,8 @@
         if (md) { var j = +md.getAttribute('data-md'), b = r.mdays || (r.mdays = []); var bt = b.indexOf(j); if (bt >= 0) b.splice(bt, 1); else b.push(j); paint(); return; }
         var c = e.target.closest('[data-ch]');
         if (c) { r.ch = c.getAttribute('data-ch'); paint(); return; }
+        var cl = e.target.closest('[data-col]');
+        if (cl) { r.color = cl.getAttribute('data-col'); paint(); return; }
         var t = e.target.closest('[data-addt]');
         if (t) { (r.seq || (r.seq = [])).push(t.getAttribute('data-addt')); paint(); return; }
         var act = e.target.closest('[data-act]');
