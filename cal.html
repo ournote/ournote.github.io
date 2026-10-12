@@ -196,39 +196,48 @@
   .fhead { padding: calc(8px + env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 4px max(14px, env(safe-area-inset-left)); touch-action: none; }
   .fgrip { width: 38px; height: 4px; border-radius: 4px; background: var(--line); margin: 0 auto 8px; }
   .frow { display: flex; align-items: center; gap: 6px; }
-  .frow b { font-family: var(--serif); font-size: 34px; color: var(--plum); line-height: 1.1; }
+  .frow b { font-family: var(--serif); font-size: 30px; color: var(--plum); line-height: 1.1; white-space: nowrap; }
   .fyear { color: var(--muted); font-size: 14px; margin-left: 4px; align-self: flex-end; padding-bottom: 6px; }
   .frow .sp { flex: 1; }
-  .fbtn { height: 32px; min-width: 32px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper); color: var(--plum); font-size: 14px; cursor: pointer; }
+  .fbtn { flex: 0 0 auto; height: 30px; min-width: 30px; padding: 0 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper); color: var(--plum); font-size: 13px; white-space: nowrap; cursor: pointer; }
   .fbtn[aria-pressed="true"] { background: var(--rose-soft); border-color: var(--rose); }
   .fbtn.test { border-style: dashed; font-size: 12.5px; }
   .fbtn.test[aria-pressed="true"] { background: #4678d2; border-color: #4678d2; color: #fff; }
-  body.asthem .frow b::after { content: " (상대)"; font-size: 14px; color: #4678d2; }
+  body.asthem .frow b::after { content: "상대"; margin-left: 4px; font-family: var(--sans); font-size: 11px; color: #fff; background: #4678d2; border-radius: 999px; padding: 1px 6px; vertical-align: 6px; }
+  .fyear { white-space: nowrap; }
   body.asthem .rulesbtn::after { content: "상대 입장"; font-size: 11px; color: #fff; background: #4678d2; border-radius: 999px; padding: 1px 7px; }
   .fweek { display: grid; grid-template-columns: repeat(7, 1fr); margin-top: 10px; font-size: 11.5px; color: var(--muted); text-align: center; }
   .fbody { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 4px max(10px, env(safe-area-inset-right)) calc(30px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); }
   .grid.big { touch-action: pan-y; }
   .grid.big { gap: 0 2px; }
-  .grid.big .cell { height: 76px; justify-content: space-between; gap: 1px; padding: 3px 1px 3px; background: transparent; border-radius: 8px; }
-  .grid.big .cell.both { background: var(--rose-soft); }
+  .grid.big .cell { height: 80px; justify-content: space-between; gap: 1px; padding: 3px 1px 5px; background: transparent; border-radius: 0; border: 0; box-shadow: inset 0 -1px 0 var(--line); }
+  .grid.big .cell.out { visibility: visible; }
+  .grid.big .cell.both { background: transparent; }
+  .grid.big .cell.today { background: rgba(181, 71, 106, .07); }
+  .grid.big .cell.sel { border: 0; box-shadow: inset 0 -1px 0 var(--line), inset 0 0 0 1.5px var(--plum); border-radius: 6px; }
   .lanes { display: flex; flex-direction: column; gap: 2px; width: 100%; }
   .lanes.me { margin-bottom: auto; }
   .lane { position: relative; height: 12px; display: flex; align-items: center; }
   .lane .dot { width: 7px; height: 7px; border: 0; margin-left: 3px; }
-  .bar { position: relative; flex: 1; min-width: 0; height: 12px; border-radius: 2px; display: flex; align-items: center; border-left: 2.5px solid; }
-  .bar.jl { border-left: 0; margin-left: -3px; border-top-left-radius: 0; border-bottom-left-radius: 0; }
-  .bar.jr { margin-right: -3px; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+  .bar { position: relative; flex: 1; min-width: 0; height: 12px; border-radius: 2px; display: flex; align-items: center; background: var(--bf); border-left: 2.5px solid var(--bc); }
+  .bar.jl { border-left-width: 0; margin-left: -2px; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+  .bar.jr { margin-right: -2px; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+  /* 상대 일정은 속이 빈 띠(테두리만) */
+  .lanes.them .bar { background: transparent; border: 1px solid var(--bc); border-left-width: 2.5px; }
+  .lanes.them .bar.jl { border-left-width: 0; }
+  .lanes.them .bar.jr { border-right-width: 0; }
   /* 글자는 이어진 띠 길이만큼만, 넘치면 잘림 */
   .bar b { position: relative; z-index: 2; display: block; padding: 0 2px 0 2px; font-size: 9px; font-weight: 500; white-space: nowrap; overflow: hidden; line-height: 12px; letter-spacing: -.3px;
     width: calc(var(--run, 1) * 100% + (var(--run, 1) - 1) * 4px); max-width: none; color: var(--ink); }
+  .lanes.them .bar b { line-height: 10px; }
   .lane .more { position: absolute; right: 0; top: -5px; z-index: 3; font-style: normal; font-size: 8.5px; font-weight: 700; color: var(--muted); background: var(--paper); border-radius: 6px; padding: 0 2px; line-height: 11px; }
-  .b-red { background: rgba(217, 71, 79, .18); border-left-color: #d9474f; }
-  .b-yellow { background: rgba(230, 189, 58, .24); border-left-color: #d9a91e; }
-  .b-blue { background: rgba(70, 120, 210, .20); border-left-color: #4678d2; }
-  .b-sky { background: rgba(120, 160, 225, .14); border-left-color: #9cb8e6; }
-  .b-green { background: rgba(95, 174, 128, .20); border-left-color: #5fae80; }
-  .b-purple { background: rgba(140, 100, 200, .18); border-left-color: #8c64c8; }
-  .b-gray { background: rgba(120, 112, 118, .16); border-left-color: #8a8088; }
+  .b-red { --bf: rgba(217, 71, 79, .18); --bc: #d9474f; }
+  .b-yellow { --bf: rgba(230, 189, 58, .24); --bc: #d9a91e; }
+  .b-blue { --bf: rgba(70, 120, 210, .20); --bc: #4678d2; }
+  .b-sky { --bf: rgba(120, 160, 225, .14); --bc: #9cb8e6; }
+  .b-green { --bf: rgba(95, 174, 128, .20); --bc: #5fae80; }
+  .b-purple { --bf: rgba(140, 100, 200, .18); --bc: #8c64c8; }
+  .b-gray { --bf: rgba(120, 112, 118, .16); --bc: #8a8088; }
   .grid .wk { display: none; }
   .grid.mini .wk { display: block; }
   .cell.today { background: rgba(181, 71, 106, .10); border-color: transparent; }
@@ -557,7 +566,11 @@
   function laneItems(d, mine, av, rules) {
     var out = [];
     var ex = mine ? mineOn(d, av) : theirsOn(d, av);
-    if (ex) out.push(ex.note ? { kind: 'bar', key: 'x:' + ex.st + ':' + ex.note, label: ex.note, color: STATE_COLOR[ex.st] || 'gray' } : { kind: 'dot', key: 'dot', st: ex.st });
+    // 직접 표시는 메모가 없어도 띠로(돼요 / 낮만 / 저녁만 / 안 돼요)
+    if (ex) {
+      var stTxt = ex.st === 'part' && ex.part ? PART_TEXT[ex.part] : (ST_TEXT[ex.st] || '');
+      out.push({ kind: 'bar', key: 'x:' + ex.st + ':' + (ex.part || '') + ':' + (ex.note || ''), label: ex.note || stTxt, color: STATE_COLOR[ex.st] || 'gray' });
+    }
     (rules || ruList()).forEach(function (r) {
       if (isMine(r) !== mine) return;
       var m = ruleHit(r, d);
