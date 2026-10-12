@@ -196,21 +196,27 @@
   .frow .sp { flex: 1; }
   .fbtn { height: 32px; min-width: 32px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper); color: var(--plum); font-size: 14px; cursor: pointer; }
   .fbtn[aria-pressed="true"] { background: var(--rose-soft); border-color: var(--rose); }
+  .fbtn.test { border-style: dashed; font-size: 12.5px; }
+  .fbtn.test[aria-pressed="true"] { background: #4678d2; border-color: #4678d2; color: #fff; }
+  body.asthem .frow b::after { content: " (상대)"; font-size: 14px; color: #4678d2; }
+  body.asthem .rulesbtn::after { content: "상대 입장"; font-size: 11px; color: #fff; background: #4678d2; border-radius: 999px; padding: 1px 7px; }
   .fweek { display: grid; grid-template-columns: repeat(7, 1fr); margin-top: 10px; font-size: 11.5px; color: var(--muted); text-align: center; }
   .fweek .sun { color: var(--rose); }
   .fbody { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 4px max(10px, env(safe-area-inset-right)) calc(30px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); }
   .grid.big { touch-action: pan-y; }
-  .grid.big .cell { height: 92px; justify-content: space-between; gap: 2px; padding: 4px 2px 3px; }
+  .grid.big { gap: 0 2px; }
+  .grid.big .cell { height: 76px; justify-content: space-between; gap: 1px; padding: 3px 1px 3px; background: transparent; border-radius: 8px; }
+  .grid.big .cell.both { background: var(--rose-soft); }
   .lanes { display: flex; flex-direction: column; gap: 2px; width: 100%; }
   .lanes.me { margin-bottom: auto; }
-  .lane { position: relative; height: 15px; display: flex; align-items: center; }
+  .lane { position: relative; height: 12px; display: flex; align-items: center; }
   .lane .dot { width: 7px; height: 7px; border: 0; margin-left: 3px; }
-  .bar { position: relative; flex: 1; min-width: 0; height: 15px; border-radius: 3px; display: flex; align-items: center; border-left: 3px solid; }
-  .bar.jl { border-left: 0; margin-left: -5px; border-top-left-radius: 0; border-bottom-left-radius: 0; }
-  .bar.jr { margin-right: -5px; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+  .bar { position: relative; flex: 1; min-width: 0; height: 12px; border-radius: 2px; display: flex; align-items: center; border-left: 2.5px solid; }
+  .bar.jl { border-left: 0; margin-left: -3px; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+  .bar.jr { margin-right: -3px; border-top-right-radius: 0; border-bottom-right-radius: 0; }
   /* 글자는 이어진 띠 길이만큼만, 넘치면 잘림 */
-  .bar b { position: relative; z-index: 2; display: block; padding: 0 2px 0 3px; font-size: 9.5px; font-weight: 500; white-space: nowrap; overflow: hidden; line-height: 15px; letter-spacing: -.2px;
-    width: calc(var(--run, 1) * 100% + (var(--run, 1) - 1) * 10px); max-width: none; color: var(--ink); }
+  .bar b { position: relative; z-index: 2; display: block; padding: 0 2px 0 2px; font-size: 9px; font-weight: 500; white-space: nowrap; overflow: hidden; line-height: 12px; letter-spacing: -.3px;
+    width: calc(var(--run, 1) * 100% + (var(--run, 1) - 1) * 4px); max-width: none; color: var(--ink); }
   .lane .more { position: absolute; right: 0; top: -5px; z-index: 3; font-style: normal; font-size: 8.5px; font-weight: 700; color: var(--muted); background: var(--paper); border-radius: 6px; padding: 0 2px; line-height: 11px; }
   .b-red { background: rgba(217, 71, 79, .18); border-left-color: #d9474f; }
   .b-yellow { background: rgba(230, 189, 58, .24); border-left-color: #d9a91e; }
@@ -309,6 +315,7 @@
     <div class="fgrip"></div>
     <div class="frow">
       <b id="fMonth"></b><span class="fyear" id="fYear"></span><span class="sp"></span>
+      <button type="button" class="fbtn test" id="fAs" aria-pressed="false" title="테스트용: 상대 입장으로 보기">상대</button>
       <button type="button" class="fbtn" id="fToday">오늘</button>
       <button type="button" class="fbtn" id="fBoth" aria-pressed="false" aria-label="둘 다 되는 날만 보기">💞</button>
       <button type="button" class="fbtn" id="fPrev" aria-label="이전 달">‹</button>
@@ -358,7 +365,11 @@
   function syncState() { return readJSON('ournote:sync', null) || {}; }
   function connected() { return !!syncState().cid; }
   // 같이 쓰기 전에 적은 건 who가 비어 있음 → 내 것
-  function isMine(x) { var u = syncState().uid; return !x.who || (!!u && x.who === u); }
+  function isMe(x) { var u = syncState().uid; return !x.who || (!!u && x.who === u); }
+  // 테스트용(나중에 없앨 것): '상대' 버튼을 켜면 상대 입장으로 보고, 그때 만드는 건 테스트 상대 일정이 됨
+  var TEST_WHO = 'test-partner', asThem = false;
+  try { asThem = sessionStorage.getItem('ournote:asThem') === '1'; } catch (e) { asThem = false; }
+  function isMine(x) { return asThem ? !isMe(x) : isMe(x); }
   function avList() { var v = readJSON(AV_KEY, []); return Array.isArray(v) ? v.filter(function (x) { return x && x.id && x.date; }) : []; }
   function dtList() { var v = readJSON(DT_KEY, []); return Array.isArray(v) ? v.filter(function (x) { return x && x.id && x.date; }) : []; }
   function mineOn(d, list) { var r = null; (list || avList()).forEach(function (x) { if (x.date === d && isMine(x)) r = x; }); return r; }
@@ -370,7 +381,7 @@
     list = list.filter(function (x) { return !(x.date === d && isMine(x) && x !== cur); });
     if (!st) list = list.filter(function (x) { return x !== cur; });
     else if (cur) { cur.st = st; cur.part = st === 'part' ? (part || '') : ''; cur.note = note || ''; }
-    else list.push({ id: uid(), date: d, st: st, part: st === 'part' ? (part || '') : '', note: note || '' });
+    else { var nx = { id: uid(), date: d, st: st, part: st === 'part' ? (part || '') : '', note: note || '' }; if (asThem) nx.who = TEST_WHO; list.push(nx); }
     writeJSON(AV_KEY, list);
   }
   function confirmedOn(d) { return dtList().filter(function (x) { return x.date === d; })[0] || null; }
@@ -587,6 +598,17 @@
   document.getElementById('fWeek').innerHTML = WEEK.map(function (w, i) { return '<span' + (i === 0 ? ' class="sun"' : '') + '>' + w + '</span>'; }).join('');
   document.getElementById('fPrev').addEventListener('click', function () { moveMonth(-1); });
   document.getElementById('fNext').addEventListener('click', function () { moveMonth(1); });
+  function paintAs() {
+    document.getElementById('fAs').setAttribute('aria-pressed', String(asThem));
+    document.body.classList.toggle('asthem', asThem);
+  }
+  paintAs();
+  document.getElementById('fAs').addEventListener('click', function () {
+    asThem = !asThem;
+    try { sessionStorage.setItem('ournote:asThem', asThem ? '1' : '0'); } catch (e) { /* 없어도 됨 */ }
+    paintAs(); renderAll();
+    toast(asThem ? '테스트: 상대 입장으로 봐요 (지금 만드는 일정은 상대 일정)' : '내 입장으로 돌아왔어요');
+  });
   document.getElementById('fToday').addEventListener('click', function () {
     sel = today(); var d = new Date(); shown = new Date(d.getFullYear(), d.getMonth(), 1); renderAll();
   });
@@ -857,7 +879,7 @@
           else { var keep = {}; r.seq.forEach(function (x) { keep[x] = r.map[x] || 'no'; }); r.map = keep; }
           var list = ruList();
           if (orig) list = list.map(function (x) { return x.id === orig.id ? r : x; });
-          else { r.id = uid(); list.push(r); }
+          else { r.id = uid(); if (asThem) r.who = TEST_WHO; list.push(r); }
           writeJSON(RU_KEY, list);
           renderAll(); closeSheet(); toast(orig ? '고정 일정을 고쳤어요' : '고정 일정을 추가했어요');
         }
