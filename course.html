@@ -2324,6 +2324,16 @@
   // 들어오면 오늘이거나 앞으로 다가올 코스 중 가장 가까운 것(지난 코스는 안 고름), 없으면 오늘
   (function openUpcoming() {
     var today = todayYmd();
+    // 우리 달력에서 '코스 짜러 가기'로 왔으면 그 날짜를 엶(그 날짜가 들어 있는 코스가 있으면 그 코스의 그날 탭)
+    var want = (/[?&]date=(\d{4}-\d{2}-\d{2})/.exec(location.search) || [])[1];
+    if (want) {
+      var hit = chipRanges().filter(function (r) { return r.start && r.start <= want && (r.end || r.start) >= want; })[0];
+      trip.start = hit ? hit.start : want;
+      trip.end = hit ? (hit.end || hit.start) : want;
+      dayIdx = Math.round((parse(want) - parse(trip.start)) / 86400000);
+      save();
+      return;
+    }
     var next = chipRanges().filter(function (r) { return r.start && (r.end || r.start) >= today && stopsIn(r).length; })
       .sort(function (a, b) { return a.start < b.start ? -1 : a.start > b.start ? 1 : a.end < b.end ? -1 : 1; })[0];
     if (next) {
