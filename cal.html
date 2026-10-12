@@ -106,19 +106,15 @@
   .wk { text-align: center; font-size: 11.5px; color: var(--muted); padding-bottom: 2px; }
   .wk.sun { color: var(--rose); }
   .cell {
-    position: relative; height: 62px; border-radius: 12px; border: 1px solid transparent; background: var(--paper-60);
-    display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 4px 3px 4px; cursor: pointer;
+    position: relative; height: 58px; border-radius: 12px; border: 1px solid transparent; background: var(--paper-60);
+    display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 5px 3px 3px; cursor: pointer;
     transition: background .15s ease, transform .1s ease;
   }
-  /* 아래 두 줄: 위 나 / 아래 상대. 이어지는 같은 일정은 옆 칸과 붙어 한 띠로 */
-  .lanes { display: flex; flex-direction: column; gap: 3px; width: 100%; }
-  .lane { position: relative; height: 16px; display: flex; align-items: center; }
-  .lane .dot { width: 8px; height: 8px; border: 0; margin-left: 3px; }
-  .bar { position: relative; flex: 1; height: 16px; border-radius: 5px; display: flex; align-items: center; min-width: 0; }
-  .bar.jl { margin-left: -6px; border-top-left-radius: 0; border-bottom-left-radius: 0; }
-  .bar.jr { margin-right: -6px; border-top-right-radius: 0; border-bottom-right-radius: 0; }
-  .bar b { position: relative; z-index: 2; padding: 0 4px; font-size: 10.5px; font-weight: 700; white-space: nowrap; line-height: 16px; }
-  .lane .more { position: absolute; right: 0; top: -4px; z-index: 3; font-style: normal; font-size: 9px; font-weight: 700; color: var(--muted); background: var(--paper); border-radius: 6px; padding: 0 3px; line-height: 12px; }
+  /* 아래 반쪽: 왼쪽 나, 오른쪽 상대 */
+  .halves { display: flex; gap: 2px; width: 100%; height: 24px; }
+  .half { flex: 1; min-width: 0; position: relative; border-radius: 6px; display: grid; place-items: center; font-size: 12.5px; font-weight: 700; line-height: 1; }
+  .half .dot { width: 9px; height: 9px; border: 0; }
+  .half.tagged .dot { position: absolute; top: 2px; right: 2px; width: 7px; height: 7px; box-shadow: 0 0 0 1.5px var(--paper); }
   .c-red { background: #f6cfd2; color: #b3313b; }
   .c-yellow { background: #f7e6a6; color: #806300; }
   .c-blue { background: #c8d9f5; color: #2c57a3; }
@@ -238,7 +234,7 @@
     <span><span class="dot ok"></span>돼요</span>
     <span><span class="dot part"></span>일부만</span>
     <span><span class="dot no"></span>안 돼요</span>
-    <span><span class="tagmini c-blue" style="width:auto;padding:0 4px">야간</span>일정</span>
+    <span><span class="tagmini c-red">수</span>고정 일정</span>
     <span>💞 둘 다 돼요</span>
   </div>
   <button type="button" class="rulesbtn" id="rulesBtn">🔁 고정 일정 <span id="rulesN"></span><span class="arr">›</span></button>
@@ -353,14 +349,12 @@
   // 그날 실제 상태: 직접 표시 > 고정 일정
   // 고정 일정이 여러 개 겹치면 더 빡빡한 쪽(안 돼요 > 일부만 > 돼요)
   function ruleOn(d, mine, rules) {
-    var rank = { no: 3, part: 2, ok: 1 }, best = null, n = 0;
+    var rank = { no: 3, part: 2, ok: 1 }, best = null;
     (rules || ruList()).forEach(function (r) {
       if (isMine(r) !== mine) return;
       var m = ruleHit(r, d);
-      if (m && m.tag) n++;
       if (m && (!best || rank[m.st] >= rank[best.st])) best = m;
     });
-    if (best) best.count = n;
     return best;
   }
   function effOn(d, mine, av, rules) {
@@ -418,14 +412,7 @@
     var h = WEEK.map(function (w, i) { return '<div class="wk' + (i === 0 ? ' sun' : '') + '">' + w + '</div>'; }).join('');
     var first = shown.getDay(), dim = new Date(shown.getFullYear(), shown.getMonth() + 1, 0).getDate();
     for (var i = 0; i < first; i++) h += '<div class="cell out"></div>';
-    // 줄마다(위 나 / 아래 상대) 그날 보여줄 것 먼저 계산 → 같은 일정이 이어지면 한 띠로
-    var lanes = [];
     for (var dn = 1; dn <= dim; dn++) {
-      var dd = ymd(new Date(shown.getFullYear(), shown.getMonth(), dn));
-      lanes[dn] = { me: laneInfo(dd, true, list, rules), them: laneInfo(dd, false, list, rules) };
-    }
-    function same(a, b) { return a && b && a.key && a.key === b.key; }
-    for (dn = 1; dn <= dim; dn++) {
       var dt = new Date(shown.getFullYear(), shown.getMonth(), dn), d = ymd(dt);
       var me = effOn(d, true, list, rules), th = effOn(d, false, list, rules);
       var cls = ['cell'];
@@ -434,35 +421,16 @@
       if (d < t) cls.push('past');
       if (bothLabel(me, th)) cls.push('both');
       if (conf[d]) cls.push('conf');
-      var dow = dt.getDay();
-      h += '<div class="' + cls.join(' ') + '" data-d="' + d + '"><span class="n">' + dn + '</span><span class="lanes">' +
-        ['me', 'them'].map(function (who) {
-          var x = lanes[dn][who];
-          var joinL = dow > 0 && dn > 1 && same(lanes[dn - 1][who], x);
-          var joinR = dow < 6 && dn < dim && same(lanes[dn + 1][who], x);
-          return laneHtml(who, x, joinL, joinR);
-        }).join('') + '</span></div>';
+      h += '<div class="' + cls.join(' ') + '" data-d="' + d + '"><span class="n">' + dn + '</span>' +
+        '<span class="halves">' + halfHtml('me', ruleOn(d, true, rules), mineOn(d, list)) + halfHtml('them', ruleOn(d, false, rules), theirsOn(d, list)) + '</span></div>';
     }
     document.getElementById('grid').innerHTML = h;
   }
-  // 한 줄(나 또는 상대)에 그날 보여줄 것: 직접 표시가 우선, 메모가 있으면 띠 · 없으면 점 / 아니면 고정 일정 띠
-  var STATE_COLOR = { ok: 'green', part: 'yellow', no: 'red' };
-  function laneInfo(d, mine, av, rules) {
-    var ex = mine ? mineOn(d, av) : theirsOn(d, av);
-    var ru = ruleOn(d, mine, rules);
-    if (ex) {
-      if (ex.note) return { kind: 'bar', key: 'x:' + ex.st + ':' + ex.note, label: ex.note, color: STATE_COLOR[ex.st] || 'gray', extra: ru && ru.tag ? ru.count : 0 };
-      return { kind: 'dot', st: ex.st, extra: ru && ru.tag ? ru.count : 0 };
-    }
-    if (ru && ru.tag) return { kind: 'bar', key: 'r:' + ru.rule.id + ':' + ru.note, label: ru.note || ru.tag.t, color: ru.tag.c, extra: ru.count - 1 };
-    return null;
-  }
-  function laneHtml(who, x, joinL, joinR) {
-    var more = x && x.extra > 0 ? '<i class="more">+' + x.extra + '</i>' : '';
-    if (!x) return '<span class="lane ' + who + '"></span>';
-    if (x.kind === 'dot') return '<span class="lane ' + who + '"><i class="dot ' + x.st + '"></i>' + more + '</span>';
-    return '<span class="lane ' + who + '"><span class="bar c-' + x.color + (joinL ? ' jl' : '') + (joinR ? ' jr' : '') + '">' +
-      (joinL ? '' : '<b>' + esc(x.label) + '</b>') + '</span>' + more + '</span>';
+  // 아래 반쪽 칸: 고정 일정은 글자 1개 + 바탕색, 직접 표시는 작은 점
+  function halfHtml(who, rule, ex) {
+    var tag = rule && rule.tag;
+    return '<span class="half ' + who + (tag ? ' tagged c-' + tag.c : '') + '">' + (tag ? esc(tag.t) : '') +
+      (ex ? '<i class="dot ' + ex.st + '"></i>' : '') + '</span>';
   }
   function renderAll() { renderSummary(); renderGrid(); renderRulesBtn(); }
   document.getElementById('prevM').addEventListener('click', function () { shown = new Date(shown.getFullYear(), shown.getMonth() - 1, 1); renderGrid(); });
