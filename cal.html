@@ -137,6 +137,9 @@
   .cell.both::after { content: "💞"; position: absolute; top: 2px; right: 3px; font-size: 9px; }
   .cell.conf .n { background: var(--rose); color: #fff; border-radius: 999px; padding: 0 6px; }
   .cell.hit { transform: scale(.94); }
+  /* 쭉 당겨서 고르는 중인 범위 (색은 임시) */
+  .cell.sel { background: #ece2f3; border-color: #c9b3dc; }
+  @media (prefers-color-scheme: dark) { .cell.sel { background: #3a2d47; border-color: #6c5683; } }
   .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--line); }
   .dot.ok { background: var(--ok); border-color: var(--ok); }
   .dot.part { background: var(--part); border-color: var(--part); }
@@ -235,7 +238,7 @@
     <span>💞 둘 다 돼요</span>
   </div>
   <button type="button" class="rulesbtn" id="rulesBtn">🔁 고정 일정 <span id="rulesN"></span><span class="arr">›</span></button>
-  <p class="howto">날짜를 누를 때마다 돼요 → 일부만 → 안 돼요 → 지움 · 꾹 누르면 자세히(메모·낮/저녁·이날 보자) · 손가락으로 쭉 그으면 한꺼번에</p>
+  <p class="howto">날짜를 누를 때마다 돼요 → 일부만 → 안 돼요 → 지움 · 꾹 누르면 자세히(메모·낮/저녁·이날 보자) · 찍고 쭉 당기면 그 사이 날짜 전부 한꺼번에</p>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -459,31 +462,37 @@
       if (!c || c.getAttribute('data-d') === press.d) return;
       var m = mineOn(press.d);
       press.painting = true;
-      press.paint = NEXT[m ? m.st : '']; // 첫 칸을 누른 것처럼 다음 상태(지움 포함)로 다 같이 칠함
-      paintCell(press.d);
+      press.paint = NEXT[m ? m.st : '']; // 첫 칸을 누른 것처럼 다음 상태(지움 포함)로 범위 전체를 칠함
     }
-    if (c) paintCell(c.getAttribute('data-d'));
+    if (c) { press.end = c.getAttribute('data-d'); markRange(); }
   });
-  function paintCell(d) {
-    if (press.done[d]) return;
-    press.done[d] = true;
-    var half = grid.querySelector('.cell[data-d="' + d + '"] .half.me');
-    if (!half) return;
-    var el = half.querySelector('.dot');
-    if (!press.paint) { if (el) el.remove(); return; }
-    if (!el) { el = document.createElement('i'); half.appendChild(el); }
-    el.className = 'dot ' + press.paint;
+  // 처음 찍은 날 ~ 지금 손가락이 있는 날까지 사이의 모든 날(지난 날 빼고)
+  function rangeDays(a, b) {
+    var lo = a < b ? a : b, hi = a < b ? b : a, out = [];
+    grid.querySelectorAll('.cell[data-d]:not(.past)').forEach(function (c) {
+      var d = c.getAttribute('data-d');
+      if (d >= lo && d <= hi) out.push(d);
+    });
+    return out;
+  }
+  function markRange() {
+    var on = {};
+    rangeDays(press.d, press.end || press.d).forEach(function (d) { on[d] = true; });
+    press.done = on;
+    grid.querySelectorAll('.cell[data-d]').forEach(function (c) { c.classList.toggle('sel', !!on[c.getAttribute('data-d')]); });
   }
   function pressEnd() {
     if (!press) return;
     var p = press; press = null;
     clearTimeout(p.timer);
-    grid.querySelectorAll('.cell.hit').forEach(function (c) { c.classList.remove('hit'); });
+    grid.querySelectorAll('.cell.hit, .cell.sel').forEach(function (c) { c.classList.remove('hit', 'sel'); });
     if (p.long) return;
     if (p.painting) {
-      Object.keys(p.done).forEach(function (d) { var m = mineOn(d); setMine(d, p.paint, m && m.part, m && m.note); });
+      var days = Object.keys(p.done);
+      days.forEach(function (d) { var m = mineOn(d); setMine(d, p.paint, m && m.part, m && m.note); });
       renderAll();
-      toast(Object.keys(p.done).length + '일을 ' + (p.paint ? '‘' + ST_TEXT[p.paint] + '’로 표시했어요' : '지웠어요'));
+      days.sort();
+      toast((days.length > 1 ? mdShort(days[0]) + '~' + mdShort(days[days.length - 1]) + ' ' : '') + days.length + '일을 ' + (p.paint ? '‘' + ST_TEXT[p.paint] + '’' + (p.paint === 'part' ? '으로' : '로') + ' 표시했어요' : '지웠어요'));
       return;
     }
     var m = mineOn(p.d);
